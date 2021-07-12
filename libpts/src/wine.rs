@@ -1,0 +1,179 @@
+use std::convert::AsRef;
+use std::ffi::OsStr;
+use std::fs;
+use std::io;
+use std::os::unix;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command};
+use std::thread;
+use std::time::Duration;
+
+use thiserror::Error;
+
+pub enum WineArch {
+    Win32,
+    Win64,
+}
+
+impl AsRef<str> for WineArch {
+    fn as_ref(&self) -> &str {
+        match self {
+            WineArch::Win32 => "win32",
+            WineArch::Win64 => "win64",
+        }
+    }
+}
+
+impl AsRef<OsStr> for WineArch {
+    fn as_ref(&self) -> &OsStr {
+        AsRef::<str>::as_ref(self).as_ref()
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Prefix creation failed ({0})")]
+    Prefix(#[source] io::Error),
+    #[error("Server launch failed ({0})")]
+    Server(#[source] io::Error),
+    #[error("Boot failed ({0})")]
+    Boot(#[source] io::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+pub struct Wine<'a> {
+    server: Child,
+    prefix: &'a Path,
+}
+
+impl<'a> Wine<'a> {
+    pub fn new(prefix: &'a Path, arch: WineArch) -> Result<Self> {
+        let create_prefix = !prefix.exists();
+
+        if create_prefix {
+            fs::create_dir(prefix)
+                .and_then(|_| fs::create_dir(prefix.join("drive_c")))
+                .and_then(|_| fs::create_dir(prefix.join("dosdevices")))
+                .and_then(|_| unix::fs::symlink("../drive_c", prefix.join("dosdevices/c:")))
+                .map_err(|source| {
+                    let _ = fs::remove_dir_all(prefix);
+                    Error::Prefix(source)
+                })?;
+        }
+
+        let metadata = fs::metadata(prefix).map_err(|source| Error::Prefix(source))?;
+
+        let directory = format!(
+            "/tmp/.wine-{}/server-{:x}-{:x}",
+            metadata.uid(),
+            metadata.dev(),
+            metadata.ino()
+        );
+
+        let server = Command::new("wineserver")
+            .arg("--foreground")
+            .arg("--persistent")
+            .env("WINEPREFIX", prefix)
+            .spawn()
+            .map_err(|source| Error::Server(source))?;
+
+        // Wrap the server as soon as possible to drop it properly
+        let wine = Wine { server, prefix };
+
+        let path = Path::new(&directory);
+        while !path.exists() {
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        let status = wine
+            .command("wineboot.exe", false)
+            .env("WINEARCH", &arch)
+            .status()
+            .map_err(|source| Error::Boot(source))?;
+
+        if status.success() {
+            if create_prefix {
+                // Create it a second time the wineserver seems to be
+                // in a weird state after the creation of the wineprefix
+                std::mem::drop(wine);
+                Wine::new(prefix, arch)
+            } else {
+                Ok(wine)
+            }
+        } else {
+            Err(Error::Boot(io::Error::new(
+                io::ErrorKind::Other,
+                status.code().map_or("exited".to_owned(), |code| {
+                    format!("exited with code {}", code)
+                }),
+            )))
+        }
+    }
+
+    pub fn drive_c(&self) -> PathBuf {
+        self.prefix.join("drive_c")
+    }
+
+    pub fn command<S: AsRef<OsStr>>(&self, program: S, with_graphics: bool) -> Command {
+        let wine = "wine";
+        let mut command = Command::new(if with_graphics { "xvfb-run" } else { wine });
+        if with_graphics {
+            command.arg(wine);
+        }
+        command
+            .arg(program)
+            .env("WINEDLLOVERRIDES", "winedevice.exe=") // Disable device creation
+            .env("WINEDEBUG", "-all")
+            .env("WINEPREFIX", self.prefix)
+            .current_dir(self.drive_c());
+        command
+    }
+
+    pub fn devices(&self) -> io::Result<Vec<String>> {
+        fs::read_dir(self.prefix.join("dosdevices"))?
+            .map(|res| {
+                res.and_then(|e| {
+                    e.path()
+                        .file_name()
+                        .map(|name| name.to_string_lossy().to_string())
+                        .ok_or(io::Error::new(io::ErrorKind::Other, "invalid file name"))
+                })
+            })
+            .collect()
+    }
+
+    pub fn first_available_com_port(&self) -> io::Result<String> {
+        let devices = self.devices()?;
+
+        for n in 1..256 {
+            let port = format!("com{}", n);
+            if !devices.contains(&port) {
+                return Ok(port);
+            }
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no availaible com port",
+        ))
+    }
+
+    pub fn bind_com_port(&self, path: &Path) -> io::Result<String> {
+        let port = self.first_available_com_port()?;
+        unix::fs::symlink(path, self.prefix.join("dosdevices").join(&port))?;
+        Ok(port)
+    }
+
+    pub fn unbind_com_port(&self, port: String) -> io::Result<()> {
+        fs::remove_file(self.prefix.join("dosdevices").join(port))
+    }
+}
+
+impl<'a> Drop for Wine<'a> {
+    fn drop(&mut self) {
+        // TODO: handle failure
+        let _ = self.server.kill().and_then(|_| self.server.wait());
+    }
+}

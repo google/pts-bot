@@ -64,7 +64,7 @@ bool StopTestCaseEx(const char *pchTestCaseName, const char *pchProfileName);
 
 bool TestCaseFinishedEx(const char *pchTestCaseName, const char *pchProfileName);
 
-bool ExitStackEx(char *pchProfileName);
+bool ExitStackEx(const char *pchProfileName);
 
 bool UnregisterProfileEx(const char *pchProfileName);
 

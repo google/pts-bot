@@ -2,12 +2,12 @@
 #include <winreg.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <unistd.h>
 
 #include "ETSManager.h"
 
 
 pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t test_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void json_escape(const char *string) {
 	for (size_t i = 0; string[i] != '\0'; i++) {
@@ -54,6 +54,8 @@ static char * __cdecl on_implicit_send(char *description, UINT style) {
 	return "OK";
 }
 
+#define LOG_TYPE_FINAL_VERDICT (5)
+
 static bool __stdcall on_log(const char *time, const char *description, const char *message, int type, void *user) {
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"log\", \"time\": \"");
@@ -62,8 +64,14 @@ static bool __stdcall on_log(const char *time, const char *description, const ch
 	json_escape(description);
 	printf("\", \"message\": \"");
 	json_escape(message);
-	printf("\"}\n");
+	printf("\", \"logtype\": %d}\n", type);
 	pthread_mutex_unlock(&stdout_mutex);
+
+	// Test ended
+	if (type == LOG_TYPE_FINAL_VERDICT && strstr(message, "VERDICT/") != NULL) {
+		pthread_mutex_unlock(&test_mutex);
+	}
+
 	return true;
 }
 
@@ -183,7 +191,14 @@ int main(int argc, char *argv[]) {
 
 	SetPostLoggingEx(false, profile);
 
+	pthread_mutex_lock(&test_mutex);
+
 	StartTestCaseEx(test, profile, true);
 
-	sleep(60);
+	pthread_mutex_lock(&test_mutex);
+
+	TestCaseFinishedEx(test, profile);
+	ExitStackEx(profile);
+	UnregisterProfileEx(profile);
+	UnRegisterGetDevInfoEx();
 }

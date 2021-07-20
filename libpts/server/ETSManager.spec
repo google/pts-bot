@@ -17,4 +17,4 @@
 @ stdcall TestCaseFinishedEx(str str)
 @ stdcall ExitStackEx(str)
 @ stdcall UnregisterProfileEx(str)
-@ stdcall UnregisterGetDevInfoEx()
+@ stdcall UnRegisterGetDevInfoEx()

@@ -127,6 +127,7 @@ impl<'a> Wine<'a> {
             .env("WINEDLLOVERRIDES", "winedevice.exe=") // Disable device creation
             .env("WINEDEBUG", "-all")
             .env("WINEPREFIX", self.prefix)
+            .env("USER", "pts")
             .current_dir(self.drive_c());
         command
     }

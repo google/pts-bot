@@ -191,7 +191,7 @@ fn main() {
         ("TSPX_SRC_class_of_device", "OCTETSTRING", "080418"),
         ("TSPX_SNK_class_of_device", "OCTETSTRING", "04041C"),
         ("TSPX_pin_code", "IA5STRING", "0000"),
-        ("TSPX_delete_link_key", "BOOLEAN", "FALSE"),
+        ("TSPX_delete_link_key", "BOOLEAN", "TRUE"),
         ("TSPX_time_guard", "INTEGER", "300000"),
         ("TSPX_use_implicit_send", "BOOLEAN", "TRUE"),
         (

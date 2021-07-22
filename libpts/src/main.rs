@@ -10,6 +10,7 @@ use std::thread;
 use dirs;
 use libpts::hci::HCIPort;
 use libpts::installer;
+use libpts::log;
 use libpts::pts;
 use libpts::wine::{Wine, WineArch};
 
@@ -209,7 +210,7 @@ fn main() {
     let faddr: Rc<RefCell<String>> = Rc::new(RefCell::new("".to_string()));
     let faddr_clone = Rc::clone(&faddr);
 
-    let mut messages = pts::run(
+    let messages = pts::run(
         &wine,
         "A2DP",
         "A2DP/SNK/AS/BV-01-I",
@@ -218,16 +219,9 @@ fn main() {
         wineport,
     );
 
-    let addr = messages
-        .find_map(|message| {
-            if let Ok(pts::Message::Addr { ref value }) = message {
-                Some(value.clone())
-            } else {
-                None
-            }
-        })
-        .expect("Get Addr")
-        .to_lowercase();
+    let messages = messages.map(|r| r.unwrap());
+
+    let (addr, events) = log::parse(messages);
 
     faddr.replace(format!(
         "{}:{}:{}:{}:{}:{}",
@@ -239,7 +233,28 @@ fn main() {
         &addr[10..12]
     ));
 
-    for message in messages {
-        println!("{:?}", message);
+    for event in events {
+        match event {
+            log::Event::EnterTestStep(test_step, num) => {
+                println!("{:<1$}{test_step}", "", num * 2, test_step = test_step)
+            }
+            log::Event::Message(
+                pts::Message::Log {
+                    ref message,
+                    ref description,
+                    ..
+                },
+                num,
+            ) => {
+                println!(
+                    "{:<1$}- {description}{message}",
+                    "",
+                    num * 2,
+                    description = description.trim(),
+                    message = message.trim()
+                );
+            }
+            _ => {}
+        }
     }
 }

@@ -6,17 +6,55 @@ use std::process::{Child, ChildStdin, ChildStdout};
 
 use serde::Deserialize;
 use serde_json;
+use serde_repr::Deserialize_repr;
 
 use crate::hci::WineHCIPort;
 use crate::installer::PTS_PATH;
 use crate::wine::Wine;
+
+#[derive(Deserialize_repr, PartialEq, Debug)]
+#[repr(u8)]
+pub enum LogType {
+    GeneralText = 0,
+    StartTestCase = 1,
+    TestCaseEnded = 2,
+    StartDefault = 3,
+    DefaultEnded = 4,
+    FinalVerdict = 5,
+    PreliminaryVerdict = 6,
+    Timeout = 7,
+    Assignment = 8,
+    StartTimer = 9,
+    StopTimer = 10,
+    CancelTimer = 11,
+    ReadTimer = 12,
+    Attach = 13,
+    ImplicitSend = 14,
+    Goto = 15,
+    TimedOutTimer = 16,
+    Error = 17,
+    Create = 18,
+    Done = 19,
+    Activate = 20,
+    Message = 21,
+    LineMatched = 22,
+    LineNotMatched = 23,
+    SendEvent = 24,
+    ReceiveEvent = 25,
+    OtherwiseEvent = 26,
+    ReceivedOnPco = 27,
+    MatchFailed = 28,
+    CoordinationMessage = 29,
+}
+
+pub type BdAddr = String;
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum Message {
     Addr {
-        value: String,
+        value: BdAddr,
     },
     Dongle {
         message: String,
@@ -28,6 +66,7 @@ pub enum Message {
         time: String,
         description: String,
         message: String,
+        logtype: LogType,
     },
 }
 

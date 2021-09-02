@@ -2,12 +2,13 @@ pub fn id_to_mmi(profile: &str, id: u32) -> Option<&'static str> {
     include!("../data/mmi_ids.inc.rs")
 }
 
-pub fn parse(description: &str) -> Option<(&str, &str, &str, &str)> {
+pub fn parse(description: &str) -> Option<(u32, &str, &str, &str)> {
     let description = description.strip_prefix("{")?;
     let (header, description) = description.split_once("}")?;
     let (id, header) = header.split_once(",")?;
     let (test, suite) = header.split_once(",")?;
 
+    let id = id.parse().ok()?;
     Some((id, test, suite, description))
 }
 
@@ -21,7 +22,7 @@ mod test {
         assert_eq!(
             parse("{1002,A2DP/SNK/AS/BV-01-I,A2DP}If necessary, take action ..."),
             Some((
-                "1002",
+                1002,
                 "A2DP/SNK/AS/BV-01-I",
                 "A2DP",
                 "If necessary, take action ..."

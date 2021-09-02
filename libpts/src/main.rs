@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::env;
 use std::io;
 use std::io::BufRead;
+use std::io::Write;
 use std::net::Ipv4Addr;
 use std::net::TcpStream;
 use std::process::{Command, Stdio};
@@ -13,7 +14,9 @@ use libpts::ets::ETS;
 use libpts::hci::HCIPort;
 use libpts::installer;
 use libpts::log;
+use libpts::mmi;
 use libpts::pts;
+use libpts::pts::MMIStyle;
 use libpts::wine::{Wine, WineArch};
 
 const ROOTCANAL_PORT: u16 = 6402;
@@ -58,12 +61,18 @@ fn main() {
         .arg("any")
         .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
         .stderr(Stdio::piped())
+        .stdin(Stdio::piped())
         .spawn()
         .expect("DUT Spawn failed");
 
     let mut lines = io::BufReader::new(dut.stderr.take().unwrap()).lines();
 
-    let dut_addr = lines.next().unwrap().unwrap().replace(":", "").to_uppercase();
+    let dut_addr = lines
+        .next()
+        .unwrap()
+        .unwrap()
+        .replace(":", "")
+        .to_uppercase();
 
     println!("DUT Addr: {}", dut_addr);
 
@@ -354,12 +363,45 @@ fn main() {
     let faddr: Rc<RefCell<String>> = Rc::new(RefCell::new("".to_string()));
     let faddr_clone = Rc::clone(&faddr);
 
+    let mut stdin = dut.stdin.take().unwrap();
+
+    let profile = "A2DP";
+
     let messages = pts::run(
         &wine,
-        "A2DP",
+        &profile,
         "A2DP/SNK/AS/BV-01-I",
         parameters.iter(),
-        move |_| faddr_clone.borrow().to_string(),
+        move |mmi, style| {
+            let (id, test, suite, description) = mmi::parse(mmi).unwrap();
+
+            let values = match style {
+                MMIStyle::OkCancel1 | MMIStyle::OkCancel2 => "2|OK|Cancel",
+                MMIStyle::Ok => "1|OK",
+                MMIStyle::YesNo1 => "2|Yes|No",
+                MMIStyle::YesNoCancel1 => "3|Yes|No|Cancel",
+                MMIStyle::AbortRetry1 => "3|Abort|Retry|Ignore",
+                MMIStyle::Edit1 => "0",
+                MMIStyle::Edit2 => unreachable!(),
+            };
+
+            write!(
+                &mut stdin,
+                "any|{addr}|{id}|{test}|{values}|{description}\0",
+                addr = faddr_clone.borrow(),
+                id = mmi::id_to_mmi(&profile, id).unwrap_or(&id.to_string()),
+                test = test,
+                values = values,
+                description = description
+            )
+            .unwrap();
+
+            stdin.flush().unwrap();
+
+            let answer = lines.next().unwrap().unwrap();
+
+            answer
+        },
         wineport,
     );
 

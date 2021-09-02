@@ -49,9 +49,18 @@ static char * __cdecl on_implicit_send(char *description, UINT style) {
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"implicit_send\", \"description\": \"");
 	json_escape(description);
-	printf("\"}\n");
+	printf("\", \"style\": %u}\n", style);
 	pthread_mutex_unlock(&stdout_mutex);
-	return "OK";
+
+	char *answer = NULL;
+	size_t n = 0;
+
+	if (getline(&answer, &n, stdin) == -1) {
+		fprintf(stderr, "getline failed\n");
+		exit(1);
+	}
+
+	return answer;
 }
 
 #define LOG_TYPE_FINAL_VERDICT (5)

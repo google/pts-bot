@@ -47,6 +47,19 @@ pub enum LogType {
     CoordinationMessage = 29,
 }
 
+#[derive(Deserialize_repr, PartialEq, Debug, Clone)]
+#[repr(u32)]
+pub enum MMIStyle {
+    OkCancel1 = 0x11041,
+    OkCancel2 = 0x11141,
+    Ok = 0x11040,
+    YesNo1 = 0x11044,
+    YesNoCancel1 = 0x11043,
+    AbortRetry1 = 0x11042,
+    Edit1 = 0x12040,
+    Edit2 = 0x12140,
+}
+
 pub type BdAddr = String;
 
 #[derive(Deserialize, Debug)]
@@ -61,6 +74,7 @@ pub enum Message {
     },
     ImplicitSend {
         description: String,
+        style: MMIStyle,
     },
     Log {
         time: String,
@@ -72,7 +86,7 @@ pub enum Message {
 
 pub struct Messages<'a, F>
 where
-    F: Fn(&str) -> String,
+    F: FnMut(&str, MMIStyle) -> String,
 {
     process: Child,
     port: WineHCIPort<'a>,
@@ -83,7 +97,7 @@ where
 
 impl<'a, F> Iterator for Messages<'a, F>
 where
-    F: Fn(&str) -> String,
+    F: FnMut(&str, MMIStyle) -> String,
 {
     type Item = std::io::Result<Message>;
 
@@ -95,8 +109,12 @@ where
             Ok(_size) => {
                 let message: Message = serde_json::from_str(&line).unwrap();
 
-                if let Message::ImplicitSend { ref description } = message {
-                    let answer = (self.implicit_send)(description);
+                if let Message::ImplicitSend {
+                    ref description,
+                    ref style,
+                } = message
+                {
+                    let answer = (self.implicit_send)(description, style.clone());
                     write!(&mut self.stdin, "{}\n", answer);
                 }
 
@@ -109,7 +127,7 @@ where
 
 impl<'a, F> std::ops::Drop for Messages<'a, F>
 where
-    F: Fn(&str) -> String,
+    F: FnMut(&str, MMIStyle) -> String,
 {
     fn drop(&mut self) {
         // TODO: handle failure
@@ -126,7 +144,7 @@ pub fn run<'a, 'b, F>(
     port: WineHCIPort<'a>,
 ) -> Messages<'a, F>
 where
-    F: Fn(&str) -> String,
+    F: FnMut(&str, MMIStyle) -> String,
 {
     let dir = wine.drive_c().join(PTS_PATH).join("bin");
 

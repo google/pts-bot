@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::env;
 use std::io;
+use std::io::BufRead;
 use std::net::Ipv4Addr;
 use std::net::TcpStream;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::thread;
 
@@ -53,13 +54,18 @@ fn main() {
     thread::spawn(move || io::copy(&mut hcitx, &mut tcprx).expect("HCI TX"));
     thread::spawn(move || io::copy(&mut tcptx, &mut hcirx).expect("HCI RX"));
 
-    let dut = Command::new(env::args().nth(1).unwrap())
+    let mut dut = Command::new(env::args().nth(1).unwrap())
         .arg("any")
         .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
+        .stderr(Stdio::piped())
         .spawn()
         .expect("DUT Spawn failed");
 
-    println!("Binded");
+    let mut lines = io::BufReader::new(dut.stderr.take().unwrap()).lines();
+
+    let dut_addr = lines.next().unwrap().unwrap().replace(":", "").to_uppercase();
+
+    println!("DUT Addr: {}", dut_addr);
 
     println!("Devices {:?}", wine.devices());
 
@@ -188,7 +194,7 @@ fn main() {
         ("TSPC_A2DP_15_6", "BOOLEAN", "FALSE"),
         ("TSPC_ALL", "BOOLEAN", "FALSE"),
         ("TSPX_security_enabled", "BOOLEAN", "FALSE"),
-        ("TSPX_bd_addr_iut", "OCTETSTRING", "DA4C10DE1701"),
+        ("TSPX_bd_addr_iut", "OCTETSTRING", &dut_addr),
         ("TSPX_SRC_class_of_device", "OCTETSTRING", "080418"),
         ("TSPX_SNK_class_of_device", "OCTETSTRING", "04041C"),
         ("TSPX_pin_code", "IA5STRING", "0000"),

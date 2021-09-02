@@ -65,7 +65,7 @@ bazel run :pts true
 sudo apt install bash-builtins
 git clone sso://eiffel/host
 cd host
-git fetch sso://eiffel/host refs/changes/40/2340/1 && git checkout -b change-2340 FETCH_HEAD
+git fetch sso://eiffel/host refs/changes/07/4807/1 && git checkout -b change-4807 FETCH_HEAD
 ./Taskfile tool -w --device=rootcanal pts
 cd $LIBPTS_DIR
 bazel run :pts $EIFFELHOST_DIR/target/posix-gcc-debug/pts

@@ -1,3 +1,4 @@
+pub mod ets;
 pub mod hci;
 pub mod installer;
 pub mod log;

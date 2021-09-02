@@ -1,13 +1,14 @@
 use std::cell::RefCell;
 use std::env;
 use std::io;
-use std::net::TcpStream;
 use std::net::Ipv4Addr;
+use std::net::TcpStream;
 use std::process::Command;
 use std::rc::Rc;
 use std::thread;
 
 use dirs;
+use libpts::ets::ETS;
 use libpts::hci::HCIPort;
 use libpts::installer;
 use libpts::log;
@@ -206,6 +207,143 @@ fn main() {
         ("TSPX_no_confirmations", "BOOLEAN", "FALSE"),
         ("TSPX_cover_art_uuid", "OCTETSTRING", "3E"),
     ];
+
+    let parameters2 = [
+        ("TSPC_A2DP_1_1", false),
+        ("TSPC_A2DP_1_2", false),
+        ("TSPC_A2DP_2_1", false),
+        ("TSPC_A2DP_2_2", false),
+        ("TSPC_A2DP_2_3", false),
+        ("TSPC_A2DP_2_4", false),
+        ("TSPC_A2DP_2_5", true),
+        ("TSPC_A2DP_2_6", false),
+        ("TSPC_A2DP_2_7", false),
+        ("TSPC_A2DP_2_8", false),
+        ("TSPC_A2DP_2_9", false),
+        ("TSPC_A2DP_2_10", false),
+        ("TSPC_A2DP_2_10a", false),
+        ("TSPC_A2DP_2_11", false),
+        ("TSPC_A2DP_2_12", false),
+        ("TSPC_A2DP_2_13", false),
+        ("TSPC_A2DP_2_14", false),
+        ("TSPC_A2DP_2_15", false),
+        ("TSPC_A2DP_2_16", false),
+        ("TSPC_A2DP_2_17", false),
+        ("TSPC_A2DP_2a_1", false),
+        ("TSPC_A2DP_2a_2", false),
+        ("TSPC_A2DP_2a_3", false),
+        ("TSPC_A2DP_2b_1", false),
+        ("TSPC_A2DP_2b_2", false),
+        ("TSPC_A2DP_3_1", true),
+        ("TSPC_A2DP_3_1a", false),
+        ("TSPC_A2DP_3_2", false),
+        ("TSPC_A2DP_3_3", false),
+        ("TSPC_A2DP_3_4", false),
+        ("TSPC_A2DP_3_5", false),
+        ("TSPC_A2DP_3_6", false),
+        ("TSPC_A2DP_3_7", false),
+        ("TSPC_A2DP_3_8", false),
+        ("TSPC_A2DP_3a_1", true),
+        ("TSPC_A2DP_3a_2", false),
+        ("TSPC_A2DP_3a_3", false),
+        ("TSPC_A2DP_3a_4", false),
+        ("TSPC_A2DP_3a_5", false),
+        ("TSPC_A2DP_3a_6", false),
+        ("TSPC_A2DP_3a_7", false),
+        ("TSPC_A2DP_3a_8", false),
+        ("TSPC_A2DP_3a_9", false),
+        ("TSPC_A2DP_3a_10", false),
+        ("TSPC_A2DP_3a_11", false),
+        ("TSPC_A2DP_3a_12", true),
+        ("TSPC_A2DP_4_1", false),
+        ("TSPC_A2DP_4_2", true),
+        ("TSPC_A2DP_4_3", false),
+        ("TSPC_A2DP_4_4", true),
+        ("TSPC_A2DP_4_5", false),
+        ("TSPC_A2DP_4_6", false),
+        ("TSPC_A2DP_4_7", true),
+        ("TSPC_A2DP_4_8", false),
+        ("TSPC_A2DP_4_9", false),
+        ("TSPC_A2DP_4_10", true),
+        ("TSPC_A2DP_4_10a", false),
+        ("TSPC_A2DP_4_11", false),
+        ("TSPC_A2DP_4_12", false),
+        ("TSPC_A2DP_4_13", true),
+        ("TSPC_A2DP_4_14", true),
+        ("TSPC_A2DP_4_15", false),
+        ("TSPC_A2DP_5_1", true),
+        ("TSPC_A2DP_5_1a", false),
+        ("TSPC_A2DP_5_2", false),
+        ("TSPC_A2DP_5_3", false),
+        ("TSPC_A2DP_5_4", false),
+        ("TSPC_A2DP_5_5", false),
+        ("TSPC_A2DP_5a_1", true),
+        ("TSPC_A2DP_5a_2", true),
+        ("TSPC_A2DP_5a_3", true),
+        ("TSPC_A2DP_5a_4", true),
+        ("TSPC_A2DP_5a_5", true),
+        ("TSPC_A2DP_5a_6", true),
+        ("TSPC_A2DP_5a_7", true),
+        ("TSPC_A2DP_5a_8", true),
+        ("TSPC_A2DP_5a_9", true),
+        ("TSPC_A2DP_5a_10", true),
+        ("TSPC_A2DP_5a_11", true),
+        ("TSPC_A2DP_5a_12", true),
+        ("TSPC_A2DP_7a_1", false),
+        ("TSPC_A2DP_7a_2", false),
+        ("TSPC_A2DP_7a_3", false),
+        ("TSPC_A2DP_7b_1", false),
+        ("TSPC_A2DP_7b_2", false),
+        ("TSPC_A2DP_8_2", false),
+        ("TSPC_A2DP_8_3", false),
+        ("TSPC_A2DP_8_4", false),
+        ("TSPC_A2DP_9_1", false),
+        ("TSPC_A2DP_9_2", false),
+        ("TSPC_A2DP_9_3", false),
+        ("TSPC_A2DP_9_4", false),
+        ("TSPC_A2DP_10_1", false),
+        ("TSPC_A2DP_10_2", false),
+        ("TSPC_A2DP_10_3", false),
+        ("TSPC_A2DP_10_4", false),
+        ("TSPC_A2DP_10_5", false),
+        ("TSPC_A2DP_10_6", false),
+        ("TSPC_A2DP_11_1", false),
+        ("TSPC_A2DP_11_2", false),
+        ("TSPC_A2DP_11_3", false),
+        ("TSPC_A2DP_11_4", false),
+        ("TSPC_A2DP_11_5", false),
+        ("TSPC_A2DP_11_6", false),
+        ("TSPC_A2DP_12_2", false),
+        ("TSPC_A2DP_12_3", false),
+        ("TSPC_A2DP_12_4", false),
+        ("TSPC_A2DP_13_1", false),
+        ("TSPC_A2DP_13_2", false),
+        ("TSPC_A2DP_13_3", false),
+        ("TSPC_A2DP_13_4", false),
+        ("TSPC_A2DP_14_1", false),
+        ("TSPC_A2DP_14_2", false),
+        ("TSPC_A2DP_14_3", false),
+        ("TSPC_A2DP_14_4", false),
+        ("TSPC_A2DP_14_5", false),
+        ("TSPC_A2DP_15_1", false),
+        ("TSPC_A2DP_15_2", false),
+        ("TSPC_A2DP_15_3", false),
+        ("TSPC_A2DP_15_4", false),
+        ("TSPC_A2DP_15_5", false),
+        ("TSPC_A2DP_15_6", false),
+        ("TSPC_ALL", false),
+    ];
+
+    // WIP
+    let mut ets: ETS = ETS::parse(String::from("A2DP"), &wine).unwrap_or_else(|err| {
+        println!("{}", err);
+        std::process::exit(2);
+    });
+    println!(
+        "{:?}",
+        ets.get_valid_testcases(&parameters2).collect::<Vec<_>>()
+    );
+    // END WIP
 
     let faddr: Rc<RefCell<String>> = Rc::new(RefCell::new("".to_string()));
     let faddr_clone = Rc::clone(&faddr);

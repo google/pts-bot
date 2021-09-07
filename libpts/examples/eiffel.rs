@@ -9,7 +9,7 @@ use std::thread;
 
 use anyhow::{Context, Result};
 use dirs;
-use libpts::{Event, HCIPort, Interaction, MMIStyle, Message, IUT, PTS};
+use libpts::{logger, HCIPort, Interaction, MMIStyle, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -167,31 +167,10 @@ fn main() -> Result<()> {
     for test in profile.tests() {
         let events = profile.run_test(&*test, &mut eiffel);
 
-        for event in events {
-            let event = event.context("Runtime Error")?;
-            match event {
-                Event::EnterTestStep(test_step, num) => {
-                    println!("{:<1$}{test_step}", "", num * 2, test_step = test_step)
-                }
-                Event::Message(
-                    Message::Log {
-                        ref message,
-                        ref description,
-                        ..
-                    },
-                    num,
-                ) => {
-                    println!(
-                        "{:<1$}- {description}{message}",
-                        "",
-                        num * 2,
-                        description = description.trim(),
-                        message = message.trim()
-                    );
-                }
-                _ => {}
-            }
-        }
+        let verdict = logger::print(events).context("Runtime Error")?;
+        let verdict = verdict.context("No Verdict ?")?;
+
+        println!("Verdict: {}", verdict);
 
         break;
     }

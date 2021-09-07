@@ -31,14 +31,15 @@ static void json_escape(const char *string) {
 
 static bool __stdcall on_device(const char* pchAddr, const char* pchName, const
                             char* pchCod) {
+	(void)pchAddr;
+	(void)pchName;
+	(void)pchCod;
+	return true;
 }
 
 static bool __stdcall on_dongle_msg(const char *message) {
-	pthread_mutex_lock(&stdout_mutex);
-	printf("{\"type\": \"dongle\", \"message\": \"");
-	json_escape(message);
-	printf("\"}\n");
-	pthread_mutex_unlock(&stdout_mutex);
+	(void)message;
+	return true;
 }
 
 static bool __cdecl on_use_auto_implicit_send(void) {
@@ -66,6 +67,8 @@ static char * __cdecl on_implicit_send(char *description, UINT style) {
 #define LOG_TYPE_FINAL_VERDICT (5)
 
 static bool __stdcall on_log(const char *time, const char *description, const char *message, int type, void *user) {
+	(void)user;
+
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"log\", \"time\": \"");
 	json_escape(time);
@@ -107,12 +110,12 @@ static LSTATUS register_port(const char *port) {
 	);
 	if (status != ERROR_SUCCESS) return status;
 
-	status = RegSetValueExA(key, "ClassGUID", 0, REG_SZ, PORTS_CLASS_GUID, sizeof(PORTS_CLASS_GUID));
+	status = RegSetValueExA(key, "ClassGUID", 0, REG_SZ, (const BYTE *)PORTS_CLASS_GUID, sizeof(PORTS_CLASS_GUID));
 	if (status != ERROR_SUCCESS) goto ret;
 
 	int len = snprintf(name, sizeof(name), "HCI (%s)", port);
 
-	status = RegSetValueExA(key, "FriendlyName", 0, REG_SZ, name, len + 1);
+	status = RegSetValueExA(key, "FriendlyName", 0, REG_SZ, (const BYTE *)name, len + 1);
 	if (status != ERROR_SUCCESS) goto ret;
 
 ret:
@@ -182,7 +185,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	char implicit_send[256];
+	char implicit_send[sizeof(directory) + 20];
 	snprintf(implicit_send, sizeof(implicit_send), "%s\\implicit_send3.dll", directory);
 
 	success = InitEtsEx(profile, "NIL", implicit_send, addr);

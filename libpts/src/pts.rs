@@ -67,9 +67,6 @@ pub enum Message {
     Addr {
         value: BdAddr,
     },
-    Dongle {
-        message: String,
-    },
     ImplicitSend {
         description: String,
         style: MMIStyle,

@@ -2,8 +2,10 @@ mod bd_addr;
 mod hci;
 mod installer;
 mod log;
+pub mod logger;
 mod mmi;
 mod pts;
+mod ttcn;
 mod wine;
 mod xml_model;
 

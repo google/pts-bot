@@ -366,15 +366,13 @@ fn main() {
 
     let mut stdin = dut.stdin.take().unwrap();
 
-    let profile = "A2DP";
-
     let messages = pts::run(
         wineport,
-        &profile,
+        "A2DP",
         "A2DP/SNK/AS/BV-01-I",
         parameters.iter(),
         move |mmi, style| {
-            let (id, test, suite, description) = mmi::parse(mmi).unwrap();
+            let (id, test, profile, description) = mmi::parse(mmi).unwrap();
 
             let values = match style {
                 MMIStyle::OkCancel1 | MMIStyle::OkCancel2 => "2|OK|Cancel",

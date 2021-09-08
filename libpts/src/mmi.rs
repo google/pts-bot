@@ -6,10 +6,10 @@ pub fn parse(description: &str) -> Option<(u32, &str, &str, &str)> {
     let description = description.strip_prefix("{")?;
     let (header, description) = description.split_once("}")?;
     let (id, header) = header.split_once(",")?;
-    let (test, suite) = header.split_once(",")?;
+    let (test, profile) = header.split_once(",")?;
 
     let id = id.parse().ok()?;
-    Some((id, test, suite, description))
+    Some((id, test, profile, description))
 }
 
 #[cfg(test)]

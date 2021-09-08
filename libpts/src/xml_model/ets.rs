@@ -1,29 +1,11 @@
 use serde::Deserialize;
-use serde_xml_rs::from_str;
-
-use std::fs::read_to_string;
-use std::io;
 
 use evalexpr::error::EvalexprResult;
 use evalexpr::eval_boolean_with_context;
 
-use thiserror::Error;
+use super::slice_context::SliceContext;
 
-use crate::installer::PTS_PATH;
-use crate::wine::Wine;
-
-mod slice_context;
-use slice_context::SliceContext;
-
-const ETS_PATH: &'static str = "bin/Bluetooth/Ets/";
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("{0} {1}")]
-    FileNotFound(#[source] io::Error, String),
-    #[error("Could not parse xml file: {0}")]
-    ParseFailed(#[source] serde_xml_rs::Error),
-}
+use super::XMLModel;
 
 #[derive(Debug, Deserialize)]
 pub struct ETS {
@@ -80,20 +62,11 @@ impl Group {
     }
 }
 
-impl ETS {
-    pub fn parse(profile: String, wine: &Wine) -> Result<Self, Error> {
-        let path = wine
-            .drive_c()
-            .join(PTS_PATH)
-            .join(ETS_PATH)
-            .join(format!("{}.xml", profile));
-        let ets_string: String = read_to_string(path.clone()).map_err(|err| {
-            Error::FileNotFound(err, String::from(path.to_str().unwrap_or("Unknown")))
-        })?;
-        let ets: ETS = from_str(&ets_string).map_err(|err| Error::ParseFailed(err))?;
-        Ok(ets)
-    }
+impl<'a> XMLModel<'a> for ETS {
+    const PATH: &'static str = "bin/Bluetooth/Ets/";
+}
 
+impl ETS {
     pub fn get_valid_testcases<'a>(
         &'a mut self,
         parameters: &'a [(&str, bool)],

@@ -10,7 +10,6 @@ use std::rc::Rc;
 use std::thread;
 
 use dirs;
-use libpts::ets::ETS;
 use libpts::hci::HCIPort;
 use libpts::installer;
 use libpts::log;
@@ -18,6 +17,8 @@ use libpts::mmi;
 use libpts::pts;
 use libpts::pts::MMIStyle;
 use libpts::wine::{Wine, WineArch};
+use libpts::xml_model::ets::ETS;
+use libpts::xml_model::XMLModel;
 
 const ROOTCANAL_PORT: u16 = 6402;
 

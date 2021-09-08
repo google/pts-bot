@@ -24,8 +24,8 @@ pub struct HCIPort {
     pty: Arc<pty::PtyMaster>,
 }
 
-pub struct WineHCIPort<'a> {
-    wine: &'a Wine<'a>,
+pub struct WineHCIPort<'wine> {
+    pub(crate) wine: &'wine Wine,
     pub(crate) com: Option<String>,
 }
 

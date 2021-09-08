@@ -43,27 +43,29 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct Wine<'a> {
-    server: Child,
-    prefix: &'a Path,
+struct WineServer(Child);
+
+pub struct Wine {
+    server: WineServer,
+    prefix: PathBuf,
 }
 
-impl<'a> Wine<'a> {
-    pub fn new(prefix: &'a Path, arch: WineArch) -> Result<Self> {
+impl Wine {
+    pub fn new(prefix: PathBuf, arch: WineArch) -> Result<Self> {
         let create_prefix = !prefix.exists();
 
         if create_prefix {
-            fs::create_dir(prefix)
-                .and_then(|_| fs::create_dir(prefix.join("drive_c")))
-                .and_then(|_| fs::create_dir(prefix.join("dosdevices")))
-                .and_then(|_| unix::fs::symlink("../drive_c", prefix.join("dosdevices/c:")))
+            fs::create_dir(&prefix)
+                .and_then(|_| fs::create_dir(&prefix.join("drive_c")))
+                .and_then(|_| fs::create_dir(&prefix.join("dosdevices")))
+                .and_then(|_| unix::fs::symlink("../drive_c", &prefix.join("dosdevices/c:")))
                 .map_err(|source| {
-                    let _ = fs::remove_dir_all(prefix);
+                    let _ = fs::remove_dir_all(&prefix);
                     Error::Prefix(source)
                 })?;
         }
 
-        let metadata = fs::metadata(prefix).map_err(|source| Error::Prefix(source))?;
+        let metadata = fs::metadata(&prefix).map_err(|source| Error::Prefix(source))?;
 
         let directory = format!(
             "/tmp/.wine-{}/server-{:x}-{:x}",
@@ -75,8 +77,9 @@ impl<'a> Wine<'a> {
         let server = Command::new("wineserver")
             .arg("--foreground")
             .arg("--persistent")
-            .env("WINEPREFIX", prefix)
+            .env("WINEPREFIX", &prefix)
             .spawn()
+            .map(WineServer)
             .map_err(|source| Error::Server(source))?;
 
         // Wrap the server as soon as possible to drop it properly
@@ -97,7 +100,8 @@ impl<'a> Wine<'a> {
             if create_prefix {
                 // Create it a second time the wineserver seems to be
                 // in a weird state after the creation of the wineprefix
-                std::mem::drop(wine);
+                let Wine { prefix, server } = wine;
+                std::mem::drop(server);
                 Wine::new(prefix, arch)
             } else {
                 Ok(wine)
@@ -126,7 +130,7 @@ impl<'a> Wine<'a> {
             .arg(program)
             .env("WINEDLLOVERRIDES", "winedevice.exe=") // Disable device creation
             .env("WINEDEBUG", "-all")
-            .env("WINEPREFIX", self.prefix)
+            .env("WINEPREFIX", &self.prefix)
             .env("USER", "pts")
             .current_dir(self.drive_c());
         command
@@ -172,9 +176,9 @@ impl<'a> Wine<'a> {
     }
 }
 
-impl<'a> Drop for Wine<'a> {
+impl Drop for WineServer {
     fn drop(&mut self) {
         // TODO: handle failure
-        let _ = self.server.kill().and_then(|_| self.server.wait());
+        let _ = self.0.kill().and_then(|_| self.0.wait());
     }
 }

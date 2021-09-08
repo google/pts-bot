@@ -10,7 +10,6 @@ use serde_repr::Deserialize_repr;
 
 use crate::hci::WineHCIPort;
 use crate::installer::PTS_PATH;
-use crate::wine::Wine;
 
 #[derive(Deserialize_repr, PartialEq, Debug)]
 #[repr(u8)]
@@ -84,18 +83,19 @@ pub enum Message {
     },
 }
 
-pub struct Messages<'a, F>
+pub struct Messages<'wine, F>
 where
     F: FnMut(&str, MMIStyle) -> String,
 {
     process: Child,
-    port: WineHCIPort<'a>,
+    // The port need to live as much time as the process
+    _port: WineHCIPort<'wine>,
     implicit_send: F,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
 }
 
-impl<'a, F> Iterator for Messages<'a, F>
+impl<'wine, F> Iterator for Messages<'wine, F>
 where
     F: FnMut(&str, MMIStyle) -> String,
 {
@@ -125,7 +125,7 @@ where
     }
 }
 
-impl<'a, F> std::ops::Drop for Messages<'a, F>
+impl<'wine, F> std::ops::Drop for Messages<'wine, F>
 where
     F: FnMut(&str, MMIStyle) -> String,
 {
@@ -135,17 +135,17 @@ where
     }
 }
 
-pub fn run<'a, 'b, F>(
-    wine: &Wine,
+pub fn run<'wine, 'a, F>(
+    port: WineHCIPort<'wine>,
     profile: &str,
     test_case: &str,
-    parameters: impl Iterator<Item = &'b (&'b str, &'b str, &'b str)>,
+    parameters: impl Iterator<Item = &'a (&'a str, &'a str, &'a str)>,
     implicit_send: F,
-    port: WineHCIPort<'a>,
-) -> Messages<'a, F>
+) -> Messages<'wine, F>
 where
     F: FnMut(&str, MMIStyle) -> String,
 {
+    let wine = &port.wine;
     let dir = wine.drive_c().join(PTS_PATH).join("bin");
 
     let mut process = wine
@@ -166,7 +166,7 @@ where
 
     Messages {
         process,
-        port,
+        _port: port,
         implicit_send,
         stdin,
         stdout,

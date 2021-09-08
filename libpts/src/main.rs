@@ -25,7 +25,7 @@ fn main() {
     let mut cache = dirs::cache_dir().expect("No cache dir");
     cache.push("pts");
 
-    let wine = match Wine::new(&cache, WineArch::Win32) {
+    let wine = match Wine::new(cache, WineArch::Win32) {
         Ok(wine) => wine,
         Err(err) => {
             println!("Wine error: {}", err);
@@ -368,7 +368,7 @@ fn main() {
     let profile = "A2DP";
 
     let messages = pts::run(
-        &wine,
+        wineport,
         &profile,
         "A2DP/SNK/AS/BV-01-I",
         parameters.iter(),
@@ -402,7 +402,6 @@ fn main() {
 
             answer
         },
-        wineport,
     );
 
     let messages = messages.map(|r| r.unwrap());

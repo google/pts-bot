@@ -1,5 +1,6 @@
 pub mod ets;
 pub mod picsx;
+pub mod pixitx;
 mod slice_context;
 
 use serde::Deserialize;

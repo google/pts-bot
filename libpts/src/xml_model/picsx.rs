@@ -63,12 +63,12 @@ mod test {
         let picsx_xml = r#"
         <PICS>
             <Rows>
-            <Row>
-                <Name>TSPC_A2DP_1_1</Name>
-                <Description>Source (C.1)</Description>
-                <Value>FALSE</Value>
-                <Mandatory>FALSE</Mandatory>
-            </Row>
+                <Row>
+                    <Name>TSPC_A2DP_1_1</Name>
+                    <Description>Source (C.1)</Description>
+                    <Value>FALSE</Value>
+                    <Mandatory>FALSE</Mandatory>
+                </Row>
             </Rows>
         </PICS>"#;
         let pics: PICS = from_str(&picsx_xml).unwrap();

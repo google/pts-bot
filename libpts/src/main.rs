@@ -17,7 +17,8 @@ use libpts::mmi;
 use libpts::pts;
 use libpts::pts::MMIStyle;
 use libpts::wine::{Wine, WineArch};
-use libpts::xml_model::ets::ETS;
+use libpts::xml_model::{ ets::ETS, picsx::PICS, pixitx::PIXIT};
+
 use libpts::xml_model::XMLModel;
 
 const ROOTCANAL_PORT: u16 = 6402;
@@ -352,13 +353,15 @@ fn main() {
 
     // WIP
     let mut ets: ETS = ETS::parse(String::from("A2DP"), &wine).unwrap_or_else(|err| {
-        println!("{}", err);
+        println!("error ets: {}", err);
         std::process::exit(2);
     });
     println!(
         "{:?}",
         ets.get_valid_testcases(&parameters2).collect::<Vec<_>>()
     );
+    assert!(PICS::parse(String::from("A2DP"), &wine).is_ok());
+    assert!(PIXIT::parse(String::from("A2DP"), &wine).is_ok());
     // END WIP
 
     let faddr: Rc<RefCell<String>> = Rc::new(RefCell::new("".to_string()));

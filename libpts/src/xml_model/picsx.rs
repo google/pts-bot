@@ -18,13 +18,13 @@ pub struct Rows {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Row {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Description")]
-    description: String,
+    pub description: String,
     #[serde(rename = "Value", deserialize_with = "bool_from_string")]
-    value: bool,
+    pub value: bool,
     #[serde(rename = "Mandatory", deserialize_with = "bool_from_string")]
-    mandatory: bool,
+    pub mandatory: bool,
 }
 
 fn bool_from_string<'a, D>(deserializer: D) -> Result<bool, D::Error>
@@ -46,9 +46,9 @@ impl<'a> XMLModel<'a> for PICS {
     const FILE_TYPE: &'static str = "picsx";
 }
 
-impl Rows {
-    pub fn get_parameters(&self) -> impl Iterator<Item = &Row> {
-        self.rows.iter()
+impl PICS {
+    pub fn iter(&self) -> impl Iterator<Item = &Row> {
+        self.rows.rows.iter()
     }
 }
 

@@ -51,7 +51,7 @@ pub struct Wine {
 }
 
 impl Wine {
-    pub fn new(prefix: PathBuf, arch: WineArch) -> Result<Self> {
+    pub fn spawn(prefix: PathBuf, arch: WineArch) -> Result<Self> {
         let create_prefix = !prefix.exists();
 
         if create_prefix {
@@ -65,7 +65,7 @@ impl Wine {
                 })?;
         }
 
-        let metadata = fs::metadata(&prefix).map_err(|source| Error::Prefix(source))?;
+        let metadata = fs::metadata(&prefix).map_err(Error::Prefix)?;
 
         let directory = format!(
             "/tmp/.wine-{}/server-{:x}-{:x}",
@@ -80,7 +80,7 @@ impl Wine {
             .env("WINEPREFIX", &prefix)
             .spawn()
             .map(WineServer)
-            .map_err(|source| Error::Server(source))?;
+            .map_err(Error::Server)?;
 
         // Wrap the server as soon as possible to drop it properly
         let wine = Wine { server, prefix };
@@ -94,7 +94,7 @@ impl Wine {
             .command("wineboot.exe", false)
             .env("WINEARCH", &arch)
             .status()
-            .map_err(|source| Error::Boot(source))?;
+            .map_err(Error::Boot)?;
 
         if status.success() {
             if create_prefix {
@@ -102,7 +102,7 @@ impl Wine {
                 // in a weird state after the creation of the wineprefix
                 let Wine { prefix, server } = wine;
                 std::mem::drop(server);
-                Wine::new(prefix, arch)
+                Wine::spawn(prefix, arch)
             } else {
                 Ok(wine)
             }

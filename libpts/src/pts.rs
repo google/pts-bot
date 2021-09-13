@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json;
 use serde_repr::Deserialize_repr;
 
+use crate::bd_addr::BdAddr;
 use crate::hci::WineHCIPort;
 use crate::installer::PTS_PATH;
 
@@ -58,8 +59,6 @@ pub enum MMIStyle {
     Edit1 = 0x12040,
     Edit2 = 0x12140,
 }
-
-pub type BdAddr = String;
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -139,7 +138,7 @@ pub fn run<'wine, 'a, F>(
     port: WineHCIPort<'wine>,
     profile: &str,
     test_case: &str,
-    parameters: impl Iterator<Item = &'a (&'a str, &'a str, &'a str)>,
+    parameters: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
     implicit_send: F,
 ) -> Messages<'wine, F>
 where

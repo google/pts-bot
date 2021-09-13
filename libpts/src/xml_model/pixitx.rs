@@ -5,9 +5,9 @@ use super::XMLModel;
 #[derive(Debug, Deserialize)]
 pub struct PIXIT {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Version")]
-    version: String,
+    pub version: String,
     #[serde(rename = "Rows")]
     rows: Rows,
 }
@@ -21,13 +21,13 @@ pub struct Rows {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Row {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Description")]
-    description: String,
+    pub description: String,
     #[serde(rename = "Type")]
-    value_type: String,
+    pub value_type: String,
     #[serde(rename = "Value")]
-    value: String,
+    pub value: String,
 }
 
 impl<'a> XMLModel<'a> for PIXIT {
@@ -35,10 +35,16 @@ impl<'a> XMLModel<'a> for PIXIT {
     const FILE_TYPE: &'static str = "pixitx";
 }
 
+impl PIXIT {
+    pub fn iter(&self) -> impl Iterator<Item = &Row> {
+        self.rows.rows.iter()
+    }
+}
+
 #[cfg(test)]
 mod test {
 
-    use super::{PIXIT, Row};
+    use super::{Row, PIXIT};
     use serde_xml_rs::from_str;
 
     #[test]
@@ -62,7 +68,9 @@ mod test {
         });
         let row: Row = Row {
             name: String::from("TSPX_security_enabled"),
-            description: String::from("Whether security is required for establishing connections. (Default: FALSE)"),
+            description: String::from(
+                "Whether security is required for establishing connections. (Default: FALSE)",
+            ),
             value_type: String::from("BOOLEAN"),
             value: String::from("FALSE"),
         };
@@ -96,7 +104,9 @@ mod test {
         });
         let row: Row = Row {
             name: String::from("TSPX_security_enabled"),
-            description: String::from("Whether security is required for establishing connections. (Default: FALSE)"),
+            description: String::from(
+                "Whether security is required for establishing connections. (Default: FALSE)",
+            ),
             value_type: String::from("BOOLEAN"),
             value: String::from("FALSE"),
         };

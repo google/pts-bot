@@ -22,6 +22,7 @@ fn nix_error_into_io_error(error: nix::Error) -> io::Error {
 #[derive(Clone)]
 pub struct HCIPort {
     pty: Arc<pty::PtyMaster>,
+    waiting_read: bool,
 }
 
 pub struct WineHCIPort<'wine> {
@@ -42,7 +43,10 @@ impl<'a> HCIPort {
         let com = wine.bind_com_port(Path::new(&path))?;
 
         Ok((
-            HCIPort { pty: Arc::new(pty) },
+            HCIPort {
+                pty: Arc::new(pty),
+                waiting_read: true,
+            },
             WineHCIPort {
                 com: Some(com),
                 wine,
@@ -54,11 +58,21 @@ impl<'a> HCIPort {
 impl io::Read for HCIPort {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match unistd::read(self.pty.as_raw_fd(), buf) {
-            Ok(read) => Ok(read),
-            Err(nix::Error::Sys(nix::errno::Errno::EIO)) => Err(io::Error::new(
-                io::ErrorKind::Interrupted,
-                "Child not connected",
-            )),
+            Ok(read) => {
+                // Read was sucessfull, something is connected
+                self.waiting_read = false;
+                Ok(read)
+            }
+            Err(nix::Error::Sys(nix::errno::Errno::EIO)) => {
+                // The pty will not be connected directly,
+                // we want to wait for a connection, but when it disconnect
+                // we want to end the read
+                if self.waiting_read {
+                    Err(io::Error::new(io::ErrorKind::Interrupted, "Not connected"))
+                } else {
+                    Ok(0)
+                }
+            }
             Err(err) => Err(nix_error_into_io_error(err)),
         }
     }

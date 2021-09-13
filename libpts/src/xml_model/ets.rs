@@ -3,7 +3,7 @@ use serde::Deserialize;
 use evalexpr::error::EvalexprResult;
 use evalexpr::eval_boolean_with_context;
 
-use super::slice_context::SliceContext;
+use super::fn_context::FnContext;
 
 use super::XMLModel;
 
@@ -44,20 +44,20 @@ struct TestCase {
 }
 
 impl TestCase {
-    pub fn is_enable(&self, parameters: &[(&str, bool)]) -> EvalexprResult<bool> {
+    pub fn is_enabled<F: Fn(&str) -> Option<bool>>(&self, get_value: &F) -> EvalexprResult<bool> {
         let mut mapping = self.mapping.replace("AND", "&&");
         mapping = mapping.replace("OR", "||");
 
-        eval_boolean_with_context(&mapping, &SliceContext(parameters))
+        eval_boolean_with_context(&mapping, &FnContext(get_value))
     }
 }
 
 impl Group {
-    pub fn get_testcases(&self) -> Box<dyn Iterator<Item = &TestCase> + '_> {
+    pub fn testcases(&self) -> Box<dyn Iterator<Item = &TestCase> + '_> {
         Box::new(
             self.testcases
                 .iter()
-                .chain(self.groups.iter().flat_map(|group| group.get_testcases())),
+                .chain(self.groups.iter().flat_map(|group| group.testcases())),
         )
     }
 }
@@ -67,19 +67,19 @@ impl<'a> XMLModel<'a> for ETS {
 }
 
 impl ETS {
-    pub fn get_valid_testcases<'a>(
-        &'a mut self,
-        parameters: &'a [(&str, bool)],
+    pub fn enabled_testcases<'a, F: 'a + Fn(&str) -> Option<bool>>(
+        &'a self,
+        get_value: F,
     ) -> impl Iterator<Item = String> + 'a {
-        self.get_testcases()
-            .filter(move |testcase| testcase.is_enable(parameters).unwrap_or(false))
+        self.testcases()
+            .filter(move |testcase| testcase.is_enabled(&get_value).unwrap_or(false))
             .map(|testcase| testcase.name.clone())
     }
 
-    fn get_testcases(&mut self) -> impl Iterator<Item = &TestCase> + '_ {
+    fn testcases(&self) -> impl Iterator<Item = &TestCase> + '_ {
         self.profile
             .groups
-            .iter_mut()
-            .flat_map(|group| group.get_testcases())
+            .iter()
+            .flat_map(|group| group.testcases())
     }
 }

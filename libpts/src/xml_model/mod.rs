@@ -1,7 +1,7 @@
 pub mod ets;
+mod fn_context;
 pub mod picsx;
 pub mod pixitx;
-mod slice_context;
 
 use serde::Deserialize;
 use serde_xml_rs::from_str;
@@ -26,7 +26,7 @@ pub trait XMLModel<'a>: Deserialize<'a> {
     const PATH: &'static str;
     const FILE_TYPE: &'static str = "xml";
 
-    fn parse(profile: String, wine: &Wine) -> Result<Self, Error> {
+    fn parse(profile: &str, wine: &Wine) -> Result<Self, Error> {
         let path = wine.drive_c().join(PTS_PATH).join(Self::PATH).join(format!(
             "{}.{}",
             profile,

@@ -4,14 +4,14 @@ use evalexpr::{Context, Value};
 const TRUE: Value = Value::Boolean(true);
 const FALSE: Value = Value::Boolean(false);
 
-pub struct SliceContext<'a>(pub &'a [(&'a str, bool)]);
+pub struct FnContext<'a, T>(pub &'a T);
 
-impl<'a> Context for SliceContext<'a> {
+impl<'a, T> Context for FnContext<'a, T>
+where
+    T: Fn(&str) -> Option<bool>,
+{
     fn get_value(&self, identifier: &str) -> Option<&Value> {
-        self.0
-            .iter()
-            .find(|(name, _)| *name == identifier)
-            .map(|(_, value)| if *value { &TRUE } else { &FALSE })
+        self.0(identifier).map(|value| if value { &TRUE } else { &FALSE })
     }
 
     fn call_function(&self, identifier: &str, _argument: &Value) -> EvalexprResult<Value> {

@@ -80,6 +80,7 @@ pub enum Message {
         message: String,
         logtype: LogType,
     },
+    Raw(String),
 }
 
 pub struct Messages<'wine, F>
@@ -106,18 +107,20 @@ where
         match self.stdout.read_line(&mut line) {
             Ok(0) => None,
             Ok(_size) => {
-                let message: Message = serde_json::from_str(&line).unwrap();
+                if let Ok(message) = serde_json::from_str(&line) {
+                    if let Message::ImplicitSend {
+                        ref description,
+                        ref style,
+                    } = message
+                    {
+                        let answer = (self.implicit_send)(description, style.clone());
+                        write!(&mut self.stdin, "{}\n", answer);
+                    }
 
-                if let Message::ImplicitSend {
-                    ref description,
-                    ref style,
-                } = message
-                {
-                    let answer = (self.implicit_send)(description, style.clone());
-                    write!(&mut self.stdin, "{}\n", answer);
+                    Some(Ok(message))
+                } else {
+                    Some(Ok(Message::Raw(line)))
                 }
-
-                Some(Ok(message))
             }
             Err(e) => Some(Err(e)),
         }

@@ -68,7 +68,7 @@ cd host
 git fetch sso://eiffel/host refs/changes/07/4807/1 && git checkout -b change-4807 FETCH_HEAD
 ./Taskfile tool -w --device=rootcanal pts
 cd $LIBPTS_DIR
-bazel run :eiffel $EIFFELHOST_DIR/target/posix-gcc-debug/pts
+bazel run :eiffel -- --eiffel $EIFFELHOST_DIR/target/posix-gcc-debug/pts --profile A2DP
 ```
 
 ## Snippets

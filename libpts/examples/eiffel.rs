@@ -1,13 +1,18 @@
-use std::env;
+use std::collections::HashMap;
+use std::fs::File;
 use std::io;
-use std::io::BufRead;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::net::{Ipv4Addr, Shutdown, TcpStream};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
 use std::thread;
 
+use anyhow::{Context, Result};
 use dirs;
 use libpts::{Event, HCIPort, Interaction, MMIStyle, Message, IUT, PTS};
+use serde::Deserialize;
+use serde_json;
+use structopt::StructOpt;
 
 const ROOTCANAL_PORT: u16 = 6402;
 
@@ -19,14 +24,14 @@ struct Eiffel {
 }
 
 impl Eiffel {
-    fn spawn(command: &str) -> Self {
+    fn spawn(command: &Path) -> Result<Self> {
         let mut process = Command::new(command)
             .arg("any")
             .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
             .stderr(Stdio::piped())
             .stdin(Stdio::piped())
             .spawn()
-            .expect("Eiffel Spawn failed");
+            .context("Failed to spawn eiffel")?;
 
         let mut lines = io::BufReader::new(process.stderr.take().unwrap()).lines();
 
@@ -36,19 +41,21 @@ impl Eiffel {
             .unwrap()
             .replace(":", "")
             .to_uppercase();
+
         let stdin = process.stdin.take().unwrap();
 
-        Self {
+        Ok(Self {
             process,
             addr,
             lines,
             stdin,
-        }
+        })
     }
 }
 
 impl Drop for Eiffel {
     fn drop(&mut self) {
+        println!("Terminating eiffel");
         let _ = self.process.kill().and_then(|_| self.process.wait());
     }
 }
@@ -105,23 +112,64 @@ fn connect_to_rootcanal(port: HCIPort) {
     });
 }
 
-fn main() {
-    let mut cache = dirs::cache_dir().expect("No cache dir");
+#[derive(Debug, Deserialize)]
+struct Config {
+    ics: HashMap<String, bool>,
+    ixit: HashMap<String, String>,
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "libpts", about = "libpts eiffel runner")]
+struct Opts {
+    /// Profile to test, eg "A2DP", "L2CAP", ...
+    #[structopt(short, long)]
+    profile: String,
+
+    /// Config file path
+    #[structopt(short, long, parse(from_os_str))]
+    config: Option<PathBuf>,
+
+    /// Eiffel pts binary to use as Implementation Under Test (IUT)
+    #[structopt(short, long, parse(from_os_str))]
+    eiffel: PathBuf,
+}
+
+fn main() -> Result<()> {
+    let opts = Opts::from_args();
+
+    let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
     cache.push("pts");
 
-    let pts = PTS::install(cache, connect_to_rootcanal).expect("PTS");
+    let mut pts = PTS::install(cache, connect_to_rootcanal).context("Failed to create PTS")?;
 
-    let mut eiffel = Eiffel::spawn(&*env::args().nth(1).unwrap());
+    if let Some(ref config_path) = opts.config {
+        let config_file = File::open(config_path).context("Failed to open config file")?;
+        let config: Config = serde_json::from_reader(io::BufReader::new(config_file))
+            .context("Failed to parse config")?;
 
-    let profile = pts.profile("A2DP").unwrap();
+        for (ics, value) in config.ics {
+            pts.set_ics(&*ics, value);
+        }
 
-    println!("Tests {:?}", profile.tests().collect::<Vec<_>>());
+        for (ixit, value) in config.ixit {
+            pts.set_ixit(&*ixit, &*value);
+        }
+    }
+
+    let profile = pts
+        .profile(&*opts.profile)
+        .with_context(|| format!("Profile '{}' not found", &opts.profile))?;
+
+    println!("Tests: {:?}", profile.tests().collect::<Vec<_>>());
+
+    let mut eiffel = Eiffel::spawn(&opts.eiffel)?;
 
     for test in profile.tests() {
         let events = profile.run_test(&*test, &mut eiffel);
 
         for event in events {
-            match event.unwrap() {
+            let event = event.context("Runtime Error")?;
+            match event {
                 Event::EnterTestStep(test_step, num) => {
                     println!("{:<1$}{test_step}", "", num * 2, test_step = test_step)
                 }
@@ -147,4 +195,6 @@ fn main() {
 
         break;
     }
+
+    Ok(())
 }

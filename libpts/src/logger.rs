@@ -30,7 +30,7 @@ fn kind_name(kind: &EventKind) -> &'static str {
         EventKind::FinalVerdict => "Verdict",
         EventKind::TestStart => "Test Start",
         EventKind::TestEnd => "Test End",
-        EventKind::MatchFailed => "Match Failed",
+        EventKind::MatchFailed => "Match",
         EventKind::Timer(_) => "Timer",
         EventKind::Error => "Error",
         EventKind::Ignored => "Ignored",
@@ -72,7 +72,7 @@ fn print_header(time: Option<u32>, step: &str, kind: &EventKind, include_kind_na
 
     let (bg, fg) = kind_color(kind);
     print!(
-        "{}{}{} {:^12} {} ",
+        "{}{}{} {:^10} {} ",
         style::Bold,
         color::Bg(bg),
         color::Fg(fg),

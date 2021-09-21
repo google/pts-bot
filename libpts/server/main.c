@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 	char implicit_send[sizeof(directory) + 20];
 	snprintf(implicit_send, sizeof(implicit_send), "%s\\implicit_send3.dll", directory);
 
-	success = InitEtsEx(profile, "NIL", implicit_send, addr);
+	success = InitEtsEx(profile, "C:\\workspace", implicit_send, addr);
 
 	if (!success) {
 		fprintf(stderr, "InitEtsEx failed\n");

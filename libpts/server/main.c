@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
 	//if (!success) return 1;
 
 	char addr[13];
-	snprintf(addr, sizeof(addr), "%llX",GetDongleBDAddress());
+	snprintf(addr, sizeof(addr), "%012llX",GetDongleBDAddress());
 
 	printf("{\"type\": \"addr\", \"value\": \"%s\"}\n", addr);
 

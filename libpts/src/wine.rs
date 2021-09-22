@@ -96,16 +96,15 @@ impl Wine {
             .status()
             .map_err(Error::Boot)?;
 
+        if create_prefix {
+            // It seems that the wine prefix is not
+            // fully created when wineboot exit
+            // so we wait 500ms
+            thread::sleep(Duration::from_millis(500));
+        }
+
         if status.success() {
-            if create_prefix {
-                // Create it a second time the wineserver seems to be
-                // in a weird state after the creation of the wineprefix
-                let Wine { prefix, server } = wine;
-                std::mem::drop(server);
-                Wine::spawn(prefix, arch)
-            } else {
-                Ok(wine)
-            }
+            Ok(wine)
         } else {
             Err(Error::Boot(io::Error::new(
                 io::ErrorKind::Other,

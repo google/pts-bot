@@ -20,10 +20,10 @@ On debian/gLinux the wine version shipped in the distribution is causing some is
 If you are able to get a another wine version you may skip this step
 
 ```bash
-sudo apt install flex bison libx11-dev:i386
+sudo apt install flex bison libx11-dev:i386 libxml2-dev:i386
 git clone https://github.com/wine-mirror/wine
 cd wine
-./configure --without-freetype
+./configure --without-freetype --with-xml
 make -j$(nproc)
 sudo make install
 ```

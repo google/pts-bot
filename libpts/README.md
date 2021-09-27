@@ -54,7 +54,7 @@ bazel run :root-canal
 You can start the binary as follow
 
 ```bash
-bazel run :pts true
+bazel run :eiffel -- --eiffel true --profile A2DP
 ```
 
 `true` in the previous command is the Device Under Test (DUT) binary to be used

@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::env;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, Write};
@@ -9,10 +11,11 @@ use std::thread;
 
 use anyhow::{Context, Result};
 use dirs;
-use libpts::{logger, BdAddr, HCI, Interaction, MMIStyle, IUT, PTS};
+use libpts::{logger, BdAddr, Interaction, MMIStyle, HCI, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
+use termion::{color, style};
 
 const ROOTCANAL_PORT: u16 = 6402;
 
@@ -24,9 +27,15 @@ struct Eiffel {
 }
 
 impl Eiffel {
-    fn spawn(command: &Path) -> Result<Self> {
+    fn spawn(command: &Path, test: &String) -> Result<Self> {
+        // Save the record trace in a file named after the test being run.
+        let eiffel_record_file = env::var("EIFFEL_RECORD_DIR").map_or("".to_owned(), |d| {
+            format!("{}/{}.pcap", d, test.replace("/", "_"))
+        });
+
         let mut process = Command::new(command)
             .arg("any")
+            .env("EIFFEL_RECORD_FILE", eiffel_record_file)
             .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
             .stderr(Stdio::piped())
             .stdin(Stdio::piped())
@@ -35,12 +44,7 @@ impl Eiffel {
 
         let mut lines = io::BufReader::new(process.stderr.take().unwrap()).lines();
 
-        let addr = lines
-            .next()
-            .unwrap()
-            .unwrap()
-            .parse()
-            .unwrap();
+        let addr = lines.next().unwrap().unwrap().parse().unwrap();
 
         let stdin = process.stdin.take().unwrap();
 
@@ -134,6 +138,39 @@ struct Opts {
     eiffel: PathBuf,
 }
 
+fn report_results(results: Vec<(String, String)>) {
+    println!();
+    for execution in results.iter() {
+        let result = match &*execution.1 {
+            "PASS" => format!("{}✔{}", color::Fg(color::Green), style::Reset),
+            "FAIL" => format!("{}✘{}", color::Fg(color::Red), style::Reset),
+            "INCONC" => format!("{}?{}", color::Fg(color::Yellow), style::Reset),
+            _ => format!("{}?{}", color::Fg(color::LightWhite), style::Reset),
+        };
+        println!(
+            "\t{}{}{}{}: {}",
+            style::Bold,
+            color::Fg(color::LightWhite),
+            execution.0,
+            style::Reset,
+            result
+        );
+    }
+    let total = results.len();
+    let success = results.iter().filter(|e| e.1 == "PASS").count();
+    let failed = results.iter().filter(|e| e.1 == "FAIL").count();
+    let inconc = results.iter().filter(|e| e.1 == "INCONC").count();
+    println!(
+        "\n{}Total{}: {}, {} Success, {} Failed, {} Inconc",
+        style::Bold,
+        style::Reset,
+        total,
+        success,
+        failed,
+        inconc
+    );
+}
+
 fn main() -> Result<()> {
     let opts = Opts::from_args();
 
@@ -151,8 +188,7 @@ fn main() -> Result<()> {
     let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
     cache.push("pts");
 
-    let mut pts =
-        PTS::install(cache, installer).context("Failed to create PTS")?;
+    let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;
@@ -174,18 +210,21 @@ fn main() -> Result<()> {
 
     println!("Tests: {:?}", profile.tests().collect::<Vec<_>>());
 
-    let mut eiffel = Eiffel::spawn(&opts.eiffel)?;
+    let results = profile
+        .tests()
+        .map(|test| {
+            let mut eiffel = Eiffel::spawn(&opts.eiffel, &test)?;
+            let events = profile.run_test(&*test, &mut eiffel, connect_to_rootcanal);
 
-    for test in profile.tests() {
-        let events = profile.run_test(&*test, &mut eiffel, connect_to_rootcanal);
+            let verdict = logger::print(events).context("Runtime Error")?;
+            let verdict = verdict.context("No Verdict ?")?;
 
-        let verdict = logger::print(events).context("Runtime Error")?;
-        let verdict = verdict.context("No Verdict ?")?;
+            println!("Verdict: {}", verdict);
+            Ok((test, verdict))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-        println!("Verdict: {}", verdict);
-
-        break;
-    }
+    report_results(results);
 
     Ok(())
 }

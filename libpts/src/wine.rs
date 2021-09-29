@@ -137,7 +137,17 @@ impl Wine {
         }
         command
             .arg(program)
-            .env("WINEDLLOVERRIDES", "winedevice.exe=") // Disable device creation
+            // winedevice.exe automaticaly create devices under the
+            // dosdevices folder, we don't want that, because we are
+            // creating them ourselves via bind_com_port so we disable
+            // it by preventing wine from loading it
+            .env("WINEDLLOVERRIDES", "winedevice.exe=")
+            // On gLinux on cloudtop the cups print server is
+            // not accessible. This adds 20 seconds to wine startup
+            // waiting for the connection to the server to timeout
+            // The PTS don't need printers, so we disable the default
+            // cups config
+            .env("CUPS_SERVERROOT", "/dev/null")
             .env("WINEDEBUG", "-all")
             .env("WINEPREFIX", &self.prefix)
             .env("USER", "pts")

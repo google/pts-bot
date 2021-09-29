@@ -137,10 +137,22 @@ struct Opts {
 fn main() -> Result<()> {
     let opts = Opts::from_args();
 
+    let mut config = dirs::config_dir().context("Failed to get config dir")?;
+    config.push("pts");
+
+    let installer = File::open(config.join("pts_setup_8_0_3.exe")).with_context(|| {
+        format!(
+            "Installer (pts_setup_8_0_3.exe) not found in {}, {}",
+            config.display(),
+            "download it from the SIG website and add it",
+        )
+    })?;
+
     let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
     cache.push("pts");
 
-    let mut pts = PTS::install(cache, connect_to_rootcanal).context("Failed to create PTS")?;
+    let mut pts =
+        PTS::install(cache, connect_to_rootcanal, installer).context("Failed to create PTS")?;
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;

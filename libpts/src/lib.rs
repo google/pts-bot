@@ -83,11 +83,15 @@ impl<T> PTS<T>
 where
     T: HCI,
 {
-    pub fn install(directory: PathBuf, hci: T) -> Result<Self, InstallError> {
+    pub fn install(
+        directory: PathBuf,
+        hci: T,
+        installer: impl io::Read,
+    ) -> Result<Self, InstallError> {
         let wine = Wine::spawn(directory, WineArch::Win32).map_err(InstallError::Wine)?;
 
         if installer::is_pts_installation_needed(&wine) {
-            installer::install_pts(&wine);
+            installer::install_pts(&wine, installer);
         }
 
         installer::install_server(&wine).map_err(InstallError::Server)?;

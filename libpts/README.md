@@ -14,11 +14,6 @@ libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to 
 sudo apt install bazel wine
 ```
 
-### Adding a binary of the PTS Installer
-
-To compile libPTS you need to add a `pts_setup_8_0_3.exe` file in the root of the project.
-It can be downloaded from the [Bluetooth SIG website](https://apps.bluetooth.com/mysettings#/ptsdownload)
-
 ### Running RootCanal
 
 [RootCanal](https://android.googlesource.com/platform/system/bt/+/refs/heads/master/vendor_libs/test_vendor_lib/) is a virtual bluetooth controller. It can be built as follow

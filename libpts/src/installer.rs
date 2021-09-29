@@ -5,8 +5,6 @@ use std::process::Command;
 
 use crate::wine::Wine;
 
-// TODO: download it instead
-const INSTALLER: &[u8] = include_bytes!(env!("INSTALLER_PATH"));
 const SERVER: &[u8] = include_bytes!(env!("SERVER_PATH"));
 
 pub const PTS_PATH: &'static str = "pts";
@@ -15,14 +13,16 @@ pub const PTS_PATH: &'static str = "pts";
 // files with the `/extract` flag
 const INSTALLER_EXTRACT_DIR: &'static str = "BE36A8D";
 
-pub fn install_pts(wine: &Wine) {
+pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
     let drive_c = wine.drive_c();
     let installer = drive_c.join("installer.exe");
     let tmp = drive_c.join("tmp");
     let system32 = drive_c.join("windows/system32");
     let pts = drive_c.join(PTS_PATH);
 
-    fs::write(installer, INSTALLER).expect("Write Installer");
+    let mut installer_dst = fs::File::create(installer).expect("Create Installer");
+
+    io::copy(&mut installer_src, &mut installer_dst).expect("Write Installer");
 
     fs::create_dir(&tmp).expect("Create dir");
 

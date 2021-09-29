@@ -28,5 +28,4 @@ fn main() {
     assert!(status.success());
 
     println!("cargo:rustc-env=SERVER_PATH={}/server.exe.so", &out_dir);
-    println!("cargo:rustc-env=INSTALLER_PATH=../pts_setup_8_0_3.exe")
 }

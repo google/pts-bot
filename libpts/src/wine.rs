@@ -65,7 +65,19 @@ impl Wine {
                 })?;
         }
 
-        let metadata = fs::metadata(&prefix).map_err(Error::Prefix)?;
+        let server = Command::new("wineserver")
+            .arg("--foreground")
+            .arg("--persistent")
+            .env("WINEPREFIX", &prefix)
+            .env("WINEARCH", &arch)
+            .spawn()
+            .map(WineServer)
+            .map_err(Error::Server)?;
+
+        // Wrap the server as soon as possible to drop it properly
+        let wine = Wine { server, prefix };
+
+        let metadata = fs::metadata(&wine.prefix).map_err(Error::Prefix)?;
 
         let directory = format!(
             "/tmp/.wine-{}/server-{:x}-{:x}",
@@ -74,19 +86,17 @@ impl Wine {
             metadata.ino()
         );
 
-        let server = Command::new("wineserver")
-            .arg("--foreground")
-            .arg("--persistent")
-            .env("WINEPREFIX", &prefix)
-            .spawn()
-            .map(WineServer)
-            .map_err(Error::Server)?;
-
-        // Wrap the server as soon as possible to drop it properly
-        let wine = Wine { server, prefix };
+        // Wine on Debian is patched to change the wineserver directory
+        let debian_directory = format!(
+            "/run/user/{}/wine/server-{:x}-{:x}",
+            metadata.uid(),
+            metadata.dev(),
+            metadata.ino()
+        );
 
         let path = Path::new(&directory);
-        while !path.exists() {
+        let debian_path = Path::new(&debian_directory);
+        while !path.exists() && !debian_path.exists() {
             thread::sleep(Duration::from_millis(100));
         }
 

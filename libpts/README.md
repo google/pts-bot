@@ -9,23 +9,9 @@ libPTS library runs test suites from the [Bluetooth SIG Profile Tuning Suite (PT
 
 ### Prerequisites
 
-libPTS uses [Bazel](https://bazel.build/) as it's build system
+libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to run
 ```
-sudo apt install bazel
-```
-
-### Building Wine from Source
-
-On debian/gLinux the wine version shipped in the distribution is causing some issues.
-If you are able to get a another wine version you may skip this step
-
-```bash
-sudo apt install flex bison libx11-dev:i386 libxml2-dev:i386
-git clone https://github.com/wine-mirror/wine
-cd wine
-./configure --without-freetype --with-xml
-make -j$(nproc)
-sudo make install
+sudo apt install bazel wine
 ```
 
 ### Adding a binary of the PTS Installer
@@ -45,7 +31,6 @@ bazel build :root-canal
 ### Running libPTS "demo" binary
 
 A running RootCanal instance is required to run the binary.
-Warning:  You will need to restart it after each invocation of the binary
 
 ```bash
 bazel run :root-canal

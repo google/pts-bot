@@ -50,6 +50,11 @@ pub struct Wine {
     prefix: PathBuf,
 }
 
+const EMPTY_FONTCONFIG_FILE: &'static str = "<?xml version=\"1.0\"?>
+<!DOCTYPE fontconfig SYSTEM \"fonts.dtd\">
+<fontconfig>
+</fontconfig>";
+
 impl Wine {
     pub fn spawn(prefix: PathBuf, arch: WineArch) -> Result<Self> {
         let create_prefix = !prefix.exists();
@@ -59,6 +64,8 @@ impl Wine {
                 .and_then(|_| fs::create_dir(&prefix.join("drive_c")))
                 .and_then(|_| fs::create_dir(&prefix.join("dosdevices")))
                 .and_then(|_| unix::fs::symlink("../drive_c", &prefix.join("dosdevices/c:")))
+                // See command function
+                .and_then(|_| fs::write(&prefix.join("fonts.conf"), EMPTY_FONTCONFIG_FILE))
                 .map_err(|source| {
                     let _ = fs::remove_dir_all(&prefix);
                     Error::Prefix(source)
@@ -148,6 +155,11 @@ impl Wine {
             // The PTS don't need printers, so we disable the default
             // cups config
             .env("CUPS_SERVERROOT", "/dev/null")
+            // On a system with a lot of fonts (like gLinux), wine can
+            // take some time to process them (~8 seconds on gLinux)
+            // we don't "render" anything so we provide an fontconfig
+            // file without any font
+            .env("FONTCONFIG_FILE", &self.prefix.join("fonts.conf"))
             .env("WINEDEBUG", "-all")
             .env("WINEPREFIX", &self.prefix)
             .env("USER", "pts")

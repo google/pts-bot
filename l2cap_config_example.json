@@ -1,0 +1,22 @@
+{
+  "ics": {
+    "TSPC_L2CAP_0_1": true,
+    "TSPC_L2CAP_1_1": true,
+    "TSPC_L2CAP_1_2": true,
+    "TSPC_L2CAP_2_1": true,
+    "TSPC_L2CAP_2_2": true,
+    "TSPC_L2CAP_2_3": true,
+    "TSPC_L2CAP_2_5": true,
+    "TSPC_L2CAP_2_6": true,
+    "TSPC_L2CAP_2_7": true,
+    "TSPC_L2CAP_3_1": true,
+    "TSPC_L2CAP_3_2": true,
+    "TSPC_L2CAP_3_3": true,
+    "TSPC_L2CAP_3_5": true
+  },
+  "ixit": {
+    "TSPX_delete_link_key": "TRUE",
+    "TSPX_time_guard": "60000",
+    "TSPX_psm": "0001"
+  }
+}

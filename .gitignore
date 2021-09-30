@@ -1,0 +1,5 @@
+bazel-*
+bt_config.*
+btsnooz*
+default.profraw
+target

@@ -1,0 +1,3 @@
+[submodule "mmi2grpc"]
+	path = mmi2grpc
+	url = sso://blueberry/mmi2grpc

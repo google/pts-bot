@@ -15,7 +15,7 @@ anyhow = "1.0"
 structopt = "0.3.23"
 termion = "1.5"
 dirs = "3.0"
-rand = "0.8.4"
+pyo3 = { version="0.14.5", features = ["auto-initialize"] } # Keep in mind we could remove this feature and initialize the runtime ourself
 
 [build-dependencies]
 tonic-build = "0.5"

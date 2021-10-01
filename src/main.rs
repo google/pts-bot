@@ -16,7 +16,7 @@ use structopt::StructOpt;
 use tokio::runtime::Runtime;
 
 mod bluetooth;
-mod l2cap_interact;
+mod interact;
 
 use bluetooth::facade::read_only_property_client::ReadOnlyPropertyClient;
 use bluetooth::facade::root_facade_client::RootFacadeClient;
@@ -73,15 +73,7 @@ impl IUT for Gabeldorsche {
     }
 
     fn interact(&mut self, interaction: Interaction) -> String {
-        let mut answer: String = String::new();
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            answer = match interaction.profile {
-                "L2CAP" => l2cap_interact::handle(interaction).await.unwrap(),
-                _ => unimplemented!(),
-            }
-        });
-        answer
+        interact::run(interaction).unwrap()
     }
 }
 

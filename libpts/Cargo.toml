@@ -19,3 +19,9 @@ termion = "1.5"
 dirs = "3.0"
 structopt = "0.3.23"
 anyhow = "1.0"
+
+[package.metadata.raze]
+workspace_path = "//third_party/cargo"
+package_aliases_dir = "third_party/cargo"
+targets = ["x86_64-unknown-linux-gnu"]
+genmode = "Vendored"

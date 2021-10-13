@@ -1,3 +1,6 @@
+Project: /blueberry/_project.yaml
+Book: /blueberry/_book.yaml
+
 # PTS-bot
 
 ## TL;DR
@@ -92,7 +95,7 @@ interfaces are not solely designed for PTS-bot but aim to be used for all tests
 interacting with a Google Bluetooth stack (for both Android and embedded
 devices).
 
-![PTS-bot architecture](images/pts-bot-architecture.png)
+![PTS-bot architecture](images/pts-bot-architecture.svg)
 
 PTS-bot can run on the same device as the Bluetooth stack to be tested (for
 instance both being run on the same Linux computer, or within the same Android

@@ -3,8 +3,6 @@ Book: /blueberry/_book.yaml
 
 # PTS-bot
 
-## TL;DR
-
 **PTS-bot** is a standalone tool that automates the PTS provided by the
 Bluetooth SIG in [Wine](https://www.winehq.org/), providing all the PTS
 certification tests to Blueberry.

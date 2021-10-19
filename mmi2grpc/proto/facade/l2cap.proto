@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package bluetooth.l2cap.classic;
 
-import "proto/common.proto";
+import "facade/common.proto";
 
 service L2capClassicModuleFacade {
   rpc FetchConnectionComplete(facade.Empty) returns (stream ConnectionCompleteEvent) {

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package bluetooth.neighbor;
 
-import "proto/common.proto";
+import "facade/common.proto";
 
 service NeighborFacade {
   rpc SetConnectability(EnableMsg) returns (facade.Empty) {}

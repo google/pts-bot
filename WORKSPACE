@@ -1,5 +1,58 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
+local_repository(
+    name = "bazel_skylib",
+    path = "libpts/third_party/bazel-skylib",
+)
+
+local_repository(
+    name = "rules_rust",
+    path = "libpts/third_party/rules_rust",
+)
+
+local_repository(
+    name = "rules_java",
+    path = "libpts/third_party/rules_java",
+)
+
+local_repository(
+    name = "rules_cc",
+    path = "libpts/third_party/rules_cc",
+)
+
+load("@rules_rust//rust:repositories.bzl", "rust_repository_set")
+
+rust_repository_set(
+    name = "rust_linux_x86_64",
+    version = "1.54.0",
+    rustfmt_version = "1.54.0",
+    exec_triple = "x86_64-unknown-linux-gnu"
+)
+
+# libpts
+
+local_repository(
+    name = "libpts",
+    path = "libpts",
+)
+
+# libpts deps
+
+local_repository(
+    name = "rules_foreign_cc",
+    path = "libpts/third_party/rules_foreign_cc",
+)
+
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies(register_built_tools = False)
+
+new_local_repository(
+    name = "wine",
+    path = "libpts/third_party/wine",
+    build_file = "libpts/third_party/wine.BUILD",
+)
+
 # Root canal
 
 git_repository(
@@ -16,11 +69,9 @@ git_repository(
 
 # Root canal deps
 
-git_repository(
+local_repository(
     name = "rules_proto",
-    commit = "cfdc2fa31879c0aebe31ce7702b1a9c8a4be02d2",
-    remote = "https://github.com/bazelbuild/rules_proto.git",
-    shallow_since = "1610710171 +0100",
+    path = "libpts/third_party/rules_proto",
 )
 
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")

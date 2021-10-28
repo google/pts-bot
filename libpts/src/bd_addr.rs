@@ -1,5 +1,6 @@
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
+use std::ops::Deref;
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
@@ -30,6 +31,14 @@ impl FromStr for BdAddr {
             u8::from_str_radix(&src[8..10], 16)?,
             u8::from_str_radix(&src[10..12], 16)?,
         ]))
+    }
+}
+
+impl Deref for BdAddr {
+    type Target = [u8; 6];
+
+    fn deref(&self) -> &[u8; 6] {
+        &self.0
     }
 }
 

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package blueberry;
+
+import "google/protobuf/empty.proto";
+
+service Host {
+  rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  rpc ReadLocalAddress(google.protobuf.Empty) returns (ReadLocalAddressResponse);
+  rpc SetConnectable(SetConnectableRequest) returns (SetConnectableResponse);
+}
+
+message Connection {
+  bytes cookie = 1;
+}
+
+message ConnectRequest {
+  bytes address = 1;
+}
+
+message ConnectResponse {
+  oneof response {
+    Connection connection = 1;
+  }
+}
+
+message DisconnectRequest {
+  Connection connection = 1;
+}
+
+message DisconnectResponse {}
+
+message ReadLocalAddressResponse {
+  bytes address = 1;
+}
+
+message SetConnectableRequest {
+  bool connectable = 1;
+}
+
+message SetConnectableResponse {}

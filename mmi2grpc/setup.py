@@ -27,10 +27,8 @@ class BuildGrpc(Command):
             '-I=proto',
             '--python_out=.',
             '--custom_grpc_out=.',
-            'facade/l2cap.proto',
-            'facade/neighbor.proto',
-            'facade/common.proto',
-            'facade/rootservice.proto',
+            'blueberry/host.proto',
+            'blueberry/a2dp.proto'
         ])
 
 

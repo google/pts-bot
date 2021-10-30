@@ -10,11 +10,14 @@ def eprint(*args, **kwargs):
 
 request = CodeGeneratorRequest.FromString(sys.stdin.buffer.read())
 
+def has_type(proto_file, type_name):
+    return any(filter(lambda x: x.name == type_name, proto_file.message_type))
 
 def import_type(imports, type):
+    # eprint(f'type: {type} request: {request.proto_file}')
     package = type[1:type.rindex('.')]
     type_name = type[type.rindex('.')+1:]
-    file = next(filter(lambda x: x.package == package, request.proto_file))
+    file = next(filter(lambda x: x.package == package and has_type(x, type_name), request.proto_file))
     python_path = file.name.replace('.proto', '').replace('/', '.')
     as_name = python_path.replace('.', '_dot_') + '__pb2'
     module_path = python_path[:python_path.rindex('.')]
@@ -34,12 +37,12 @@ def generate_method(imports, file, service, method):
         raise Error("TODO: stream as input type")
 
     return (
-        f'def {method.name}(self, **kwargs):\n'
+        f'def {method.name}(self, wait_for_ready=None, **kwargs):\n'
         f'    return self.channel.{input_mode}_{output_mode}(\n'
         f"        '/{file.package}.{service.name}/{method.name}',\n"
         f'        request_serializer={input_type}.SerializeToString,\n'
         f'        response_deserializer={output_type}.FromString\n'
-        f'    )({input_type}(**kwargs))'
+        f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready)'
     ).split('\n')
 
 

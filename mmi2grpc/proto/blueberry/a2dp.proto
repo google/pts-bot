@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package blueberry;
+
+import "blueberry/host.proto";
+
+service A2DP {
+  rpc OpenSource(OpenSourceRequest) returns (OpenSourceResponse);
+  rpc OpenSink(OpenSinkRequest) returns (OpenSinkResponse);
+  rpc Start(StartRequest) returns (StartResponse);
+  rpc Suspend(SuspendRequest) returns (SuspendResponse);
+  rpc Close(CloseRequest) returns (CloseResponse);
+  rpc Abort(AbortRequest) returns (AbortResponse);
+}
+
+message Source {
+  bytes cookie = 1;
+}
+
+message Sink {
+  bytes cookie = 1;
+}
+
+message OpenSourceRequest {
+  Connection connection = 1;
+}
+
+message OpenSourceResponse {
+  oneof response {
+    Source source = 1;
+  }
+}
+
+message OpenSinkRequest {
+  Connection connection = 1;
+}
+
+message OpenSinkResponse {
+  oneof response {
+    Sink sink = 1;
+  }
+}
+
+message StartRequest {
+  oneof response {
+    Sink sink = 1;
+    Source source = 2;
+  }
+}
+
+message StartResponse {}
+
+message SuspendRequest {
+  oneof response {
+    Sink sink = 1;
+    Source source = 2;
+  }
+}
+
+message SuspendResponse {}
+
+message CloseRequest {
+  oneof response {
+    Sink sink = 1;
+    Source source = 2;
+  }
+}
+
+message CloseResponse {}
+
+message AbortRequest {
+  oneof response {
+    Sink sink = 1;
+    Source source = 2;
+  }
+}
+
+message AbortResponse {}

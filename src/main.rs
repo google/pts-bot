@@ -95,12 +95,11 @@ struct Config {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "libpts", about = "libpts host runner")]
+#[structopt(
+    name = "pts-bot",
+    about = "Automating PTS tests in virtual environments"
+)]
 struct Opts {
-    /// Profile to test, eg "A2DP", "L2CAP", ...
-    #[structopt(short, long)]
-    profile: String,
-
     /// Config file path
     #[structopt(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
@@ -108,6 +107,9 @@ struct Opts {
     /// Host binary to use as Implementation Under Test (IUT)
     #[structopt(short, long, parse(from_os_str))]
     host: PathBuf,
+
+    /// All tests under this prefix will be run
+    test_prefix: String,
 }
 
 fn report_results(results: Vec<(String, String)>) {
@@ -177,14 +179,25 @@ fn main() -> Result<()> {
         }
     }
 
-    let profile = pts
-        .profile(&*opts.profile)
-        .with_context(|| format!("Profile '{}' not found", &opts.profile))?;
+    let profile_name = opts
+        .test_prefix
+        .split_once("/")
+        .map(|(profile, _)| profile)
+        .unwrap_or(&*opts.test_prefix);
 
-    println!("Tests: {:?}", profile.tests().collect::<Vec<_>>());
-    
-    let result = profile
+    let profile = pts
+        .profile(profile_name)
+        .with_context(|| format!("Profile '{}' not found", profile_name))?;
+
+    let tests = profile
         .tests()
+        .filter(|test| test.starts_with(&opts.test_prefix))
+        .collect::<Vec<_>>();
+
+    println!("Tests: {:?}", tests);
+
+    let result = tests
+        .into_iter()
         .map(|test| {
             let mut host = Host::spawn(&opts.host)?;
             let events = profile.run_test(&*test, &mut host);

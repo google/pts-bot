@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::net::{Ipv4Addr, Shutdown, TcpStream};
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::path::PathBuf;
 use std::thread;
 
 use anyhow::{Context, Result};
@@ -17,47 +16,30 @@ mod mmi2grpc;
 use mmi2grpc::Mmi2grpc;
 
 const ROOTCANAL_PORT: u16 = 6402;
-const GRPC_PORT: u16 = 8999;
-const GRPC_SERVER_ROOT_PORT: u16 = 8998;
 
 use termion::{color, style};
 
 struct Host {
     addr: String,
-    process: Child,
     mmi2grpc: Mmi2grpc,
 }
 
 impl Host {
-    fn spawn(command: &Path) -> Result<Self> {
-        let process = Command::new(command)
-            .arg(format!("--grpc-port={}", GRPC_PORT))
-            .arg(format!("--root-server-port={}", GRPC_SERVER_ROOT_PORT)) // Only for RootFacade service in rootservice.proto
-            .arg(format!("--rootcanal-port={}", ROOTCANAL_PORT))
-            .arg("--blueberry=true")
-            .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
-            .spawn()
-            .context("Failed to spawn host")?;
+    fn create() -> Result<Self> {
         let mmi2grpc = Mmi2grpc::new();
+
+        println!("Resetting Host ...");
+        mmi2grpc.reset()?;
+
+        println!("Reading local address ...");
         let addr = mmi2grpc
             .read_local_address()?
             .iter()
             .map(|&c| format!("{:02X}", c))
-            .collect::<String>();
-        println!("pts-bot: host_addr: {}", addr);
-        Ok(Self {
-            addr,
-            process,
-            mmi2grpc,
-        })
-    }
-}
+            .collect();
 
-impl Drop for Host {
-    fn drop(&mut self) {
-        println!("Terminating host");
-        self.process.kill().and_then(|_| self.process.wait())
-            .expect("Failed to kill host process");
+        println!("local address: {}", addr);
+        Ok(Self { addr, mmi2grpc })
     }
 }
 
@@ -103,10 +85,6 @@ struct Opts {
     /// Config file path
     #[structopt(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
-
-    /// Host binary to use as Implementation Under Test (IUT)
-    #[structopt(short, long, parse(from_os_str))]
-    host: PathBuf,
 
     /// All tests under this prefix will be run
     test_prefix: String,
@@ -199,7 +177,7 @@ fn main() -> Result<()> {
     let result = tests
         .into_iter()
         .map(|test| {
-            let mut host = Host::spawn(&opts.host)?;
+            let mut host = Host::create()?;
             let events = profile.run_test(&*test, &mut host);
 
             let verdict = logger::print(events).context("Runtime Error")?;

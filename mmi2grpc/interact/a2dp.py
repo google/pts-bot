@@ -6,12 +6,13 @@ from blueberry.host_grpc import Host
 from blueberry.a2dp_pb2 import Sink, Source
 from blueberry.host_pb2 import Connection
 
-_connection: Connection = None;
-_sink: Sink = None;
-_source: Source = None;
+_connection: Connection = None
+_sink: Sink = None
+_source: Source = None
+
 
 def interact(channel: Channel, interaction_id: str, test: str, pts_addr: bytes):
-    global _connection, _sink, _source;
+    global _connection, _sink, _source
     a2dp = A2DP(channel)
     host = Host(channel)
     if interaction_id == "TSC_AVDTP_mmi_iut_accept_connect":

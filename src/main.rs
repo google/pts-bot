@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
-use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
-use std::str::from_utf8;
 use std::thread;
 
 use anyhow::{Context, Result};
@@ -13,106 +12,63 @@ use libpts::{logger, HCIPort, Interaction, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
-use tokio::runtime::Runtime;
 
-mod bluetooth;
-mod interact;
-
-use bluetooth::facade::read_only_property_client::ReadOnlyPropertyClient;
-use bluetooth::facade::root_facade_client::RootFacadeClient;
-use bluetooth::facade::{BluetoothModule, Empty, StartStackRequest, StopStackRequest};
+mod mmi2grpc;
+use mmi2grpc::Mmi2grpc;
 
 const ROOTCANAL_PORT: u16 = 6402;
 const GRPC_PORT: u16 = 8999;
 const GRPC_SERVER_ROOT_PORT: u16 = 8998;
-const SIGNAL_PORT: u16 = 8997;
 
 use termion::{color, style};
 
-struct Gabeldorsche {
+struct Host {
     addr: String,
-    rt: Runtime,
     process: Child,
+    mmi2grpc: Mmi2grpc,
 }
 
-impl Gabeldorsche {
+impl Host {
     fn spawn(command: &Path) -> Result<Self> {
         let process = Command::new(command)
             .arg(format!("--grpc-port={}", GRPC_PORT))
             .arg(format!("--root-server-port={}", GRPC_SERVER_ROOT_PORT)) // Only for RootFacade service in rootservice.proto
             .arg(format!("--rootcanal-port={}", ROOTCANAL_PORT))
-            .arg(format!("--signal-port={}", SIGNAL_PORT))
+            .arg("--blueberry=true")
             .env("ROOTCANAL_PORT", ROOTCANAL_PORT.to_string())
             .spawn()
-            .context("Failed to spawn gabeldorsche")?;
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, SIGNAL_PORT))?;
-        listener.accept()?;
-        let rt = Runtime::new().unwrap();
-        let mut addr: String = String::new();
-        rt.block_on(async {
-            enable_module(BluetoothModule::L2cap).await.unwrap();
-            addr = read_local_address().await.unwrap();
-        });
-        Ok(Self { process, addr, rt })
+            .context("Failed to spawn host")?;
+        let mmi2grpc = Mmi2grpc::new();
+        let addr = mmi2grpc
+            .read_local_address()?
+            .iter()
+            .map(|&c| format!("{:02X}", c))
+            .collect::<String>();
+        println!("pts-bot: host_addr: {}", addr);
+        Ok(Self {
+            addr,
+            process,
+            mmi2grpc,
+        })
     }
 }
 
-impl Drop for Gabeldorsche {
+impl Drop for Host {
     fn drop(&mut self) {
-        println!("Terminating gabeldorsche");
-        self.rt.block_on(async {
-            stop_stack_request().await.unwrap();
-        });
-        let _ = self.process.kill().and_then(|_| self.process.wait());
+        println!("Terminating host");
+        self.process.kill().and_then(|_| self.process.wait())
+            .expect("Failed to kill host process");
     }
 }
 
-impl IUT for Gabeldorsche {
+impl IUT for Host {
     fn bd_addr(&self) -> &str {
         &self.addr
     }
 
     fn interact(&mut self, interaction: Interaction) -> String {
-        interact::run(interaction).unwrap()
+        self.mmi2grpc.interact(interaction).unwrap()
     }
-}
-
-async fn enable_module(
-    bluetooth_module: BluetoothModule,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut root_facade_client =
-        RootFacadeClient::connect(format!("http://127.0.0.1:{}", GRPC_SERVER_ROOT_PORT)).await?;
-    let start_stack_request = tonic::Request::new(StartStackRequest {
-        module_under_test: bluetooth_module.into(),
-    });
-    root_facade_client.start_stack(start_stack_request).await?;
-    Ok(())
-}
-
-async fn stop_stack_request() -> Result<(), Box<dyn std::error::Error>> {
-    let mut root_facade_client =
-        RootFacadeClient::connect(format!("http://127.0.0.1:{}", GRPC_SERVER_ROOT_PORT)).await?;
-    let stop_stack_request = tonic::Request::new(StopStackRequest {});
-    root_facade_client.stop_stack(stop_stack_request).await?;
-    Ok(())
-}
-
-async fn read_local_address() -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = ReadOnlyPropertyClient::connect(format!("http://127.0.0.1:{}", GRPC_PORT))
-        .await
-        .unwrap();
-    let empty = tonic::Request::new(Empty {});
-    let addr = match client.read_local_address(empty).await {
-        Ok(addr) => from_utf8(&addr.into_inner().address)
-            .unwrap()
-            .replace(":", "")
-            .to_uppercase(),
-        Err(err) => {
-            println!("Error reading local address: {}", err);
-            std::process::exit(2);
-        }
-    };
-    Ok(addr)
 }
 
 fn connect_to_rootcanal(port: HCIPort) {
@@ -139,7 +95,7 @@ struct Config {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "libpts", about = "libpts gabeldorsche runner")]
+#[structopt(name = "libpts", about = "libpts host runner")]
 struct Opts {
     /// Profile to test, eg "A2DP", "L2CAP", ...
     #[structopt(short, long)]
@@ -149,9 +105,9 @@ struct Opts {
     #[structopt(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
 
-    /// Gabeldorsche pts binary to use as Implementation Under Test (IUT)
+    /// Host binary to use as Implementation Under Test (IUT)
     #[structopt(short, long, parse(from_os_str))]
-    gabeldorsche: PathBuf,
+    host: PathBuf,
 }
 
 fn report_results(results: Vec<(String, String)>) {
@@ -226,12 +182,12 @@ fn main() -> Result<()> {
         .with_context(|| format!("Profile '{}' not found", &opts.profile))?;
 
     println!("Tests: {:?}", profile.tests().collect::<Vec<_>>());
-
+    
     let result = profile
         .tests()
         .map(|test| {
-            let mut gabeldorsche = Gabeldorsche::spawn(&opts.gabeldorsche)?;
-            let events = profile.run_test(&*test, &mut gabeldorsche);
+            let mut host = Host::spawn(&opts.host)?;
+            let events = profile.run_test(&*test, &mut host);
 
             let verdict = logger::print(events).context("Runtime Error")?;
             let verdict = verdict.context("No Verdict ?")?;

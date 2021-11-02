@@ -7,6 +7,7 @@ import "google/protobuf/empty.proto";
 service Host {
   rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
   rpc ReadLocalAddress(google.protobuf.Empty) returns (ReadLocalAddressResponse);
   rpc SetConnectable(SetConnectableRequest) returns (SetConnectableResponse);
@@ -21,6 +22,16 @@ message ConnectRequest {
 }
 
 message ConnectResponse {
+  oneof response {
+    Connection connection = 1;
+  }
+}
+
+message GetConnectionRequest {
+  bytes address = 1;
+}
+
+message GetConnectionResponse {
   oneof response {
     Connection connection = 1;
   }

@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+BAZEL := bazel --output_user_root=/tmp/bazel
+DEB_BUILD_OPTIONS=nostrip
+
+%:
+	dh $@ --with quilt
+
+override_dh_auto_clean:
+	$(BAZEL) clean
+
+override_dh_auto_build:
+	$(BAZEL) build :pts-bot --extra_toolchains=:host_rust_linux_x86_64

@@ -1,0 +1,13 @@
+Source: pts-bot
+Section: misc
+Priority: optional
+Maintainer: Blueberry Core Team <blueberry-core@google.com>
+Build-Depends: bazel, rustc, python3, libpython3-dev,
+  g++-multilib, flex, bison, quilt, debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+
+Package: pts-bot
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}, wine, cabextract
+Description: Automating PTS tests in virtual environments

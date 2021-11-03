@@ -17,6 +17,18 @@ def _ensure_connection(host, addr):
     if not _connection:
         _connection = host.GetConnection(address=addr).connection
 
+def _ensure_sink_open(host, a2dp, addr):
+  global _connection, _sink, _source
+  _ensure_connection(host, addr)
+  if not _sink:
+    _sink = a2dp.OpenSink(connection=_connection).sink
+
+def _ensure_source_open(host, a2dp, addr):
+  global _connection, _source
+  _ensure_connection(host, addr)
+  if not _source:
+    _source = a2dp.OpenSource(connection=_connection).source
+
 def interact(channel: Channel, interaction_id: str, test: str, pts_addr: bytes):
     global _connection, _sink, _source
     a2dp = A2DP(channel)
@@ -24,9 +36,13 @@ def interact(channel: Channel, interaction_id: str, test: str, pts_addr: bytes):
     if interaction_id == "TSC_AVDTP_mmi_iut_accept_connect":
         host.SetConnectable(connectable=True)
     elif interaction_id == "TSC_AVDTP_mmi_iut_initiate_start":
-        _connection = host.Connect(address=pts_addr).connection
+        _ensure_connection(host, pts_addr)
         if "SNK" in test:
-            _sink = a2dp.OpenSink(connection=_connection).sink
+            _ensure_sink_open(host, a2dp, pts_addr)
+            a2dp.Start(sink=_sink)
+        if "SRC" in test:
+            _ensure_source_open(host, a2dp, pts_addr)
+            a2dp.Close(source=_source)
     elif interaction_id == "TSC_AVDTP_mmi_iut_initiate_out_of_range":
         _ensure_connection(host, pts_addr)
         host.Disconnect(connection=_connection)
@@ -39,6 +55,32 @@ def interact(channel: Channel, interaction_id: str, test: str, pts_addr: bytes):
         _connection = host.Connect(address=pts_addr).connection
         if "SRC" in test:
             _source = a2dp.OpenSource(connection=_connection).source
+        if "SNK" in test:
+            _sink = a2dp.OpenSink(connection=_connection).sink
+    elif interaction_id == "TSC_AVDTP_mmi_iut_initiate_open_stream":
+        _ensure_connection(host, pts_addr)
+        if "SNK" in test:
+          _sink = a2dp.OpenSink(connection=_connection).sink
+        if "SRC" in test:
+          _source = a2dp.OpenSource(connection=_connection).source
+    elif interaction_id == "TSC_AVDTP_mmi_iut_initiate_close_stream":
+        _ensure_connection(host, pts_addr)
+        if "SNK" in test:
+          _ensure_sink_open(host, a2dp, pts_addr)
+          a2dp.Close(sink=_sink)
+          _sink = None
+        if "SRC" in test:
+          _ensure_source_open(host, a2dp, pts_addr)
+          a2dp.Close(source=_source)
+          _source = None
+    elif interaction_id == "TSC_AVDTP_mmi_iut_initiate_suspend":
+        _ensure_connection(host, pts_addr)
+        if "SNK" in test:
+          _ensure_sink_open(host, a2dp, pts_addr)
+          a2dp.Suspend(sink=_sink)
+        if "SRC" in test:
+          _ensure_source_open(host, a2dp, pts_addr)
+          a2dp.suspend(source=_source)
     elif interaction_id == "TSC_AVDTP_mmi_iut_accept_close_stream":
         pass
     elif interaction_id == "TSC_AVDTP_mmi_iut_accept_get_capabilities":
@@ -52,6 +94,8 @@ def interact(channel: Channel, interaction_id: str, test: str, pts_addr: bytes):
     elif interaction_id == "TSC_AVDTP_mmi_iut_confirm_streaming":
         pass
     elif interaction_id == "TSC_AVDTP_mmi_iut_accept_reconnect":
+        pass
+    elif interaction_id == "TSC_AVDTP_mmi_iut_accept_suspend":
         pass
     else:
         print(f'MMI NOT IMPLEMENTED: {interaction_id}')

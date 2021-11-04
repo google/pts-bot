@@ -1,4 +1,5 @@
 mod bd_addr;
+mod compat;
 mod hci;
 mod installer;
 mod log;

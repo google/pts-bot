@@ -15,7 +15,8 @@ fn nix_error_into_io_error(error: nix::Error) -> io::Error {
         nix::Error::Sys(errno) => errno.into(),
         nix::Error::InvalidPath => io::Error::new(io::ErrorKind::InvalidData, error),
         nix::Error::InvalidUtf8 => io::Error::new(io::ErrorKind::InvalidData, error),
-        nix::Error::UnsupportedOperation => io::Error::new(io::ErrorKind::Unsupported, error),
+        // FIXME: Change Other to Unsupported when gLinux rustc version >= 1.53.0
+        nix::Error::UnsupportedOperation => io::Error::new(io::ErrorKind::Other, error),
     }
 }
 

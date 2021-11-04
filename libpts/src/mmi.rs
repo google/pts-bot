@@ -1,12 +1,14 @@
+use crate::compat::split_once;
+
 pub fn id_to_mmi(profile: &str, id: u32) -> Option<&'static str> {
     include!("../data/mmi_ids.inc.rs")
 }
 
 pub fn parse(description: &str) -> Option<(u32, &str, &str, &str)> {
     let description = description.strip_prefix("{")?;
-    let (header, description) = description.split_once("}")?;
-    let (id, header) = header.split_once(",")?;
-    let (test, profile) = header.split_once(",")?;
+    let (header, description) = split_once(description, "}")?;
+    let (id, header) = split_once(header, ",")?;
+    let (test, profile) = split_once(header, ",")?;
 
     let id = id.parse().ok()?;
     Some((id, test, profile, description))

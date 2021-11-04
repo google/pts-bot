@@ -153,7 +153,8 @@ where
         .arg(port.com.as_ref().unwrap().to_uppercase())
         .arg(profile)
         .arg(test_case)
-        .args(parameters.flat_map(|(key, value_type, value)| [key, value_type, value]))
+        // FIXME: remove the to_vec() when gLinux rustc version >= 1.53.0
+        .args(parameters.flat_map(|(key, value_type, value)| [key, value_type, value].to_vec()))
         .stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .spawn()

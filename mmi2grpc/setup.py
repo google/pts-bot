@@ -43,7 +43,7 @@ class BuildPyCommand(build_py):
 setup(
     name='mmi2grpc',
     version='0.0.1',
-    packages=['interact', 'facade'],
+    packages=['interact', 'blueberry'],
     install_requires=[
         'grpcio',
     ],

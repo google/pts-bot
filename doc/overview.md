@@ -41,7 +41,7 @@ PTS-bot fixes the three major limitations of the PTS:
 * **It emulates the Bluetooth communication between the PTS and the DUT using
   Rootcanal**, a virtual Bluetooth Controller built for AOSP, removing the need
   for a physical communication. HCI calls on the DUT are routed to Rootcanal
-  instead of the Bluetooth chipset.
+  instead of the Bluetooth chip.
 
 * **It automates commands to the DUT through Bluetooth test interfaces (gRPC)**
   exposed by each layer of the Bluetooth stack. A translation layer is built to
@@ -63,8 +63,8 @@ PTS-bot has been built as an important first piece of Blueberry:
 
 * **It will allow pre-certifying DUTs** using a virtual Bluetooth communication
   without all the issues that the PTS usually have when running physically,
-  allowing it to be run in a fast and repateable fashion. It can also enable
-  automations of the physical PTS tests.
+  allowing it to be run in a fast and repeatable fashion. It can also enable
+  automation of the physical PTS tests.
 
 PTS-bot aims to be used by Bluetooth stack developers, locally on their machines
 and within pre-submit tests, to verify that their code is passing the minimum
@@ -75,31 +75,31 @@ Bluetooth test requirements to avoid introducing regressions.
 PTS-bot is made of three components:
 
 * [`libpts`](https://blueberry.git.corp.google.com/libpts/) manages the PTS
-  environement, including the Wine server for running the PTS Windows binary and
+  environment, including the Wine server for running the PTS Windows binary and
   the PTS parser, used to produce well structured logs and to parse the PTS MMI.
   This library is mostly written in Rust.
 
-* **Rootcanal** as a virtual Bluetooth Controller, with which the device under
-  test must be compatible.
-
 * [`mmi2grpc`](https://blueberry.git.corp.google.com/mmi2grpc/) translates
-  PTS inputs into gRPC calls. This library is written in python so as to be
-  easily updated by other developers.
+  PTS commands into gRPC calls. This library is written in python so as to be
+  easily updated by other developers. It includes the Bluetooth gRPC test
+  interfaces generated from their protobuf definitions located in
+  the [`bt-test-interfaces`](
+  https://blueberry.git.corp.google.com/bt-test-interfaces/) repository. Those
+  interfaces are not solely designed for PTS-bot but aim to be used for all
+  tests interacting with a Google Bluetooth stack (for both Android and embedded
+  devices).
 
-PTS-bot interacts with the Bluetooth gRPC test interfaces which are located in
-the [`bt-test-interfaces`](
-https://blueberry.git.corp.google.com/bt-test-interfaces/) repository. Those
-interfaces are not solely designed for PTS-bot but aim to be used for all tests
-interacting with a Google Bluetooth stack (for both Android and embedded
-devices).
+* **A Rootcanal driver** for interacting with Rootcanal, a virtual Bluetooth
+  Controller used to simulate the Bluetooth communication, with which the device
+  under test must also be compatible.
 
 ![PTS-bot architecture](
 /blueberry/guides/pts-bot/images/pts-bot-architecture.svg)
 
-PTS-bot can run on the same device as the Bluetooth stack to be tested (for
-instance both being run on the same Linux computer, or within the same Android
-virtual device) or on two separate devices (Rootcanal communication is done
-through TCP).
+PTS-bot can run on the same machine as the Bluetooth stack to be tested and/or
+Rootcanal (for instance all being run on the same Linux computer, or within the
+same Android virtual device) or on separate machines as Rootcanal uses TCP
+and gRPC uses HTTP.
 
 ### Limitations
 
@@ -111,5 +111,5 @@ PTS-bot has two limitations:
   interoperability issues are not covered by the PTS).
 
 * Because it relies on a virtual Bluetooth Controller, it cannot check for any
-  potential issues located inside the Bluetooth chipset of a specific device.
-  This means again that PTS-bot must be supplemented by physical tests.
+  potential issues located inside the Bluetooth chip of a specific device. This
+  means again that PTS-bot must be supplemented by physical tests.

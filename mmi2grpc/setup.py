@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from setuptools import setup, Command
 from setuptools.command.build_py import build_py
+import pkg_resources
 import os
 
 package_directory = os.path.dirname(os.path.realpath(__file__))
@@ -22,9 +23,12 @@ class BuildGrpc(Command):
     def run(self):
         from grpc_tools import protoc
 
+        proto_include = pkg_resources.resource_filename('grpc_tools', '_proto')
+
         protoc.main([
             'grpc_tools.protoc',
-            '-I=proto',
+            '-Iproto',
+            f'-I{proto_include}',
             '--python_out=.',
             '--custom_grpc_out=.',
             'blueberry/host.proto',

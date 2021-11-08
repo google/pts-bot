@@ -17,7 +17,7 @@ impl Mmi2grpc {
 
     pub fn reset(&self) -> PyResult<()> {
         Python::with_gil(|py| -> PyResult<()> {
-            PyModule::import(py, "interact")?
+            PyModule::import(py, "mmi2grpc")?
                 .getattr("reset")?
                 .call((), None)?;
             Ok(())
@@ -26,7 +26,7 @@ impl Mmi2grpc {
 
     pub fn read_local_address(&self) -> PyResult<Vec<u8>> {
         Python::with_gil(|py| -> PyResult<Vec<u8>> {
-            Ok(PyModule::import(py, "interact")?
+            Ok(PyModule::import(py, "mmi2grpc")?
                 .getattr("read_local_address")?
                 .call((), None)?
                 .cast_as::<PyBytes>()?
@@ -40,7 +40,7 @@ impl Mmi2grpc {
             let interaction_id = PyString::new(py, interaction.id);
             let profile = PyString::new(py, interaction.profile);
             let pts_addr = PyBytes::new(py, &*interaction.pts_addr);
-            PyModule::import(py, "interact")?.getattr("run")?.call(
+            PyModule::import(py, "mmi2grpc")?.getattr("run")?.call(
                 (
                     profile,
                     interaction_id,

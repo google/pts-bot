@@ -60,7 +60,7 @@ impl Wine {
         let create_prefix = !prefix.exists();
 
         if create_prefix {
-            fs::create_dir(&prefix)
+            fs::create_dir_all(&prefix)
                 .and_then(|_| fs::create_dir(&prefix.join("drive_c")))
                 .and_then(|_| fs::create_dir(&prefix.join("dosdevices")))
                 .and_then(|_| unix::fs::symlink("../drive_c", &prefix.join("dosdevices/c:")))

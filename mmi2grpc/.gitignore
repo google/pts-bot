@@ -1,5 +1,6 @@
 virtualenv
 out/
+build
 __pycache__
 blueberry/*
 !blueberry/__init__.py

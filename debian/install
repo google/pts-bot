@@ -1,1 +1,3 @@
 bazel-bin/pts-bot /usr/bin
+mmi2grpc/build/lib/blueberry /usr/lib/python3/dist-packages
+mmi2grpc/build/lib/mmi2grpc /usr/lib/python3/dist-packages

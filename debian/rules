@@ -11,3 +11,4 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	$(BAZEL) build :pts-bot --extra_toolchains=:host_rust_linux_x86_64
+	cd mmi2grpc; ./setup.py build

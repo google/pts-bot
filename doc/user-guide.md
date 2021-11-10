@@ -101,7 +101,7 @@ cp /google/data/ro/teams/blueberry/pts_setup_8_0_3.exe ~/.config/pts
 ## Going further
 
 * Browsing PTS-bot source code: [`PTS-bot`](
-* https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
+  https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
   https://blueberry.git.corp.google.com/libpts/), [`mmi2grpc`](
   https://blueberry.git.corp.google.com/mmi2grpc/).
 * Contribute to the [Blueberry test interfaces](

@@ -39,7 +39,7 @@ pub struct Interaction<'a> {
 
 /// Implementation Under Test
 pub trait IUT {
-    fn bd_addr(&self) -> &str;
+    fn bd_addr(&self) -> BdAddr;
 
     fn interact(&mut self, interaction: Interaction) -> String;
 }
@@ -160,7 +160,7 @@ where
 
         let wineport = self.pts.open_hci();
 
-        let bd_addr = iut.bd_addr().to_owned();
+        let bd_addr = format!("{:#}", iut.bd_addr());
 
         let pics = self.pics.iter().map(|row| {
             let value = self.pts.ics.get(&row.name).unwrap_or(&row.value);

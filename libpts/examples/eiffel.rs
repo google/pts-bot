@@ -9,7 +9,7 @@ use std::thread;
 
 use anyhow::{Context, Result};
 use dirs;
-use libpts::{logger, HCIPort, Interaction, MMIStyle, IUT, PTS};
+use libpts::{logger, BdAddr, HCIPort, Interaction, MMIStyle, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -17,7 +17,7 @@ use structopt::StructOpt;
 const ROOTCANAL_PORT: u16 = 6402;
 
 struct Eiffel {
-    addr: String,
+    addr: BdAddr,
     process: Child,
     lines: io::Lines<io::BufReader<ChildStderr>>,
     stdin: ChildStdin,
@@ -39,8 +39,8 @@ impl Eiffel {
             .next()
             .unwrap()
             .unwrap()
-            .replace(":", "")
-            .to_uppercase();
+            .parse()
+            .unwrap();
 
         let stdin = process.stdin.take().unwrap();
 
@@ -61,8 +61,8 @@ impl Drop for Eiffel {
 }
 
 impl IUT for Eiffel {
-    fn bd_addr(&self) -> &str {
-        &self.addr
+    fn bd_addr(&self) -> BdAddr {
+        self.addr
     }
 
     fn interact(&mut self, interaction: Interaction) -> String {

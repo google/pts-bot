@@ -88,7 +88,7 @@ cp /google/data/ro/teams/blueberry/pts_setup_8_0_3.exe ~/.config/pts
    cd aosp
    source build/envsetup.sh
    lunch 1
-   $ANDROID_BUILD_TOP/out/host/linux-x86/bin/bt_topshim_facade --blueberry=true --grpc-port=8999`
+   $ANDROID_BUILD_TOP/out/host/linux-x86/bin/bt_topshim_facade --blueberry=true --grpc-port=8999
    ```
 
 1. On the third window, run PTS-bot: `pts-bot A2DP/SNK`. As specified in the
@@ -100,7 +100,8 @@ cp /google/data/ro/teams/blueberry/pts_setup_8_0_3.exe ~/.config/pts
 
 ## Going further
 
-* Browsing PTS-bot source code: [`libpts`](
+* Browsing PTS-bot source code: [`PTS-bot`](
+* https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
   https://blueberry.git.corp.google.com/libpts/), [`mmi2grpc`](
   https://blueberry.git.corp.google.com/mmi2grpc/).
 * Contribute to the [Blueberry test interfaces](

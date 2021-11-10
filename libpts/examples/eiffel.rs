@@ -9,7 +9,7 @@ use std::thread;
 
 use anyhow::{Context, Result};
 use dirs;
-use libpts::{logger, BdAddr, HCIPort, Interaction, MMIStyle, IUT, PTS};
+use libpts::{logger, BdAddr, HCI, Interaction, MMIStyle, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -95,7 +95,7 @@ impl IUT for Eiffel {
     }
 }
 
-fn connect_to_rootcanal(port: HCIPort) {
+fn connect_to_rootcanal(port: HCI) {
     let mut hcitx = port.clone();
     let mut hcirx = port;
     let tcp = TcpStream::connect((Ipv4Addr::LOCALHOST, ROOTCANAL_PORT)).expect("Connect");
@@ -152,7 +152,7 @@ fn main() -> Result<()> {
     cache.push("pts");
 
     let mut pts =
-        PTS::install(cache, connect_to_rootcanal, installer).context("Failed to create PTS")?;
+        PTS::install(cache, installer).context("Failed to create PTS")?;
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;
@@ -177,7 +177,7 @@ fn main() -> Result<()> {
     let mut eiffel = Eiffel::spawn(&opts.eiffel)?;
 
     for test in profile.tests() {
-        let events = profile.run_test(&*test, &mut eiffel);
+        let events = profile.run_test(&*test, &mut eiffel, connect_to_rootcanal);
 
         let verdict = logger::print(events).context("Runtime Error")?;
         let verdict = verdict.context("No Verdict ?")?;

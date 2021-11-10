@@ -20,11 +20,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub use crate::bd_addr::BdAddr;
-use crate::hci::WineHCIPort;
+use crate::hci::HCIPort;
 use crate::wine::{Wine, WineArch};
 use crate::xml_model::{ets::ETS, picsx::PICS, pixitx::PIXIT, XMLModel};
 
-pub use crate::hci::HCIPort;
 pub use crate::log::Event;
 pub use crate::pts::{MMIStyle, Message};
 
@@ -44,29 +43,17 @@ pub trait IUT {
     fn interact(&mut self, interaction: Interaction) -> String;
 }
 
-pub trait HCI: Sized {
-    fn pipe(&self, port: HCIPort);
-}
+pub type HCI = HCIPort;
 
-impl<T> HCI for T
-where
-    T: Fn(HCIPort) -> (),
-{
-    fn pipe(&self, port: HCIPort) {
-        self(port);
-    }
-}
-
-pub struct PTS<T> {
+pub struct PTS {
     wine: Wine,
     ics: HashMap<String, bool>,
     ixit: HashMap<String, String>,
-    hci: T,
 }
 
-pub struct Profile<'pts, T> {
+pub struct Profile<'pts> {
     name: String,
-    pts: &'pts PTS<T>,
+    pts: &'pts PTS,
     ets: ETS,
     pics: PICS,
     pixit: PIXIT,
@@ -80,15 +67,8 @@ pub enum InstallError {
     Server(#[source] io::Error),
 }
 
-impl<T> PTS<T>
-where
-    T: HCI,
-{
-    pub fn install(
-        directory: PathBuf,
-        hci: T,
-        installer: impl io::Read,
-    ) -> Result<Self, InstallError> {
+impl PTS {
+    pub fn install(directory: PathBuf, installer: impl io::Read) -> Result<Self, InstallError> {
         let wine = Wine::spawn(directory, WineArch::Win32).map_err(InstallError::Wine)?;
 
         if installer::is_pts_installation_needed(&wine) {
@@ -99,7 +79,6 @@ where
 
         Ok(Self {
             wine,
-            hci,
             ics: HashMap::new(),
             ixit: HashMap::new(),
         })
@@ -112,7 +91,7 @@ where
         self.ixit.insert(name.to_owned(), value.to_owned());
     }
 
-    pub fn profile(&self, name: &str) -> Option<Profile<'_, T>> {
+    pub fn profile(&self, name: &str) -> Option<Profile<'_>> {
         let ets = ETS::parse(name, &self.wine).ok()?;
         let pics = PICS::parse(name, &self.wine).ok()?;
         let pixit = PIXIT::parse(name, &self.wine).ok()?;
@@ -125,20 +104,9 @@ where
             pixit,
         })
     }
-
-    fn open_hci(&self) -> WineHCIPort {
-        let (port, wineport) = HCIPort::bind(&self.wine).expect("HCI port");
-
-        self.hci.pipe(port);
-
-        wineport
-    }
 }
 
-impl<'pts, T> Profile<'pts, T>
-where
-    T: HCI,
-{
+impl<'pts> Profile<'pts> {
     pub fn tests(&self) -> impl Iterator<Item = String> + '_ {
         self.ets.enabled_testcases(move |name| {
             self.pts.ics.get(name).copied().or_else(|| {
@@ -154,11 +122,13 @@ where
         &self,
         test: &str,
         iut: &'pts mut I,
+        pipe_hci: impl Fn(HCI) -> (),
     ) -> impl Iterator<Item = Result<Event, io::Error>> + 'pts {
+        let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
+        pipe_hci(port);
+
         let addr = Rc::new(Cell::new(BdAddr::NULL));
         let addr_ptr = addr.clone();
-
-        let wineport = self.pts.open_hci();
 
         let bd_addr = format!("{:#}", iut.bd_addr());
 

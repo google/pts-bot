@@ -10,6 +10,12 @@ impl BdAddr {
     pub const NULL: BdAddr = BdAddr([0; 6]);
 }
 
+impl BdAddr {
+    pub fn new(value: [u8; 6]) -> Self {
+        Self(value)
+    }
+}
+
 impl fmt::Display for BdAddr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(

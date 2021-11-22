@@ -62,5 +62,5 @@ bazel test :libpts_test --test_output=all
 ### Format
 
 ```bash
-env RULES_RUST_CRATE_UNIVERSE_BOOTSTRAP=true bazel run @rules_rust//:rustfmt
+bazel run :format
 ```

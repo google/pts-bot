@@ -50,10 +50,25 @@ pub struct Wine {
     prefix: PathBuf,
 }
 
-const EMPTY_FONTCONFIG_FILE: &'static str = "<?xml version=\"1.0\"?>
-<!DOCTYPE fontconfig SYSTEM \"fonts.dtd\">
+const EMPTY_FONTCONFIG_FILE: &'static str = r#"<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
-</fontconfig>";
+</fontconfig>"#;
+
+const ALSA_CONFIG_FILE: &'static str = r#"pcm.!default {
+    type file
+    slave {
+        pcm {
+            type null
+        }
+    }
+    file {
+        @func getenv
+        vars [ ALSA_OUTPUT_FILE ]
+        default "/dev/null"
+    }
+    format "wav"
+}"#;
 
 impl Wine {
     pub fn spawn(prefix: PathBuf, arch: WineArch) -> Result<Self> {
@@ -66,6 +81,7 @@ impl Wine {
                 .and_then(|_| unix::fs::symlink("../drive_c", &prefix.join("dosdevices/c:")))
                 // See command function
                 .and_then(|_| fs::write(&prefix.join("fonts.conf"), EMPTY_FONTCONFIG_FILE))
+                .and_then(|_| fs::write(&prefix.join("alsa.conf"), ALSA_CONFIG_FILE))
                 .map_err(|source| {
                     let _ = fs::remove_dir_all(&prefix);
                     Error::Prefix(source)
@@ -108,7 +124,7 @@ impl Wine {
         }
 
         let status = wine
-            .command("wineboot.exe", false)
+            .command("wineboot.exe", false, None)
             .env("WINEARCH", &arch)
             .status()
             .map_err(Error::Boot)?;
@@ -136,19 +152,32 @@ impl Wine {
         self.prefix.join("drive_c")
     }
 
-    pub fn command<S: AsRef<OsStr>>(&self, program: S, with_graphics: bool) -> Command {
-        let wine = "wine";
-        let mut command = Command::new(if with_graphics { "xvfb-run" } else { wine });
-        if with_graphics {
-            command.arg(wine);
-        }
+    pub fn command(
+        &self,
+        program: &str,
+        with_graphics: bool,
+        audio_output_path: Option<&str>,
+    ) -> Command {
+        let mut command = if with_graphics {
+            let mut command = Command::new("xvfb-run");
+            command.arg("wine");
+            command
+        } else {
+            Command::new("wine")
+        };
+
         command
             .arg(program)
             // winedevice.exe automaticaly create devices under the
             // dosdevices folder, we don't want that, because we are
             // creating them ourselves via bind_com_port so we disable
             // it by preventing wine from loading it
-            .env("WINEDLLOVERRIDES", "winedevice.exe=")
+            //
+            // winepulse.drv is one of the two audio driver implementation
+            // of wine, the other one being winealsa.drv, we prevent
+            // winepulse.drv from loading to always have winealsa.drv
+            // as audio driver
+            .env("WINEDLLOVERRIDES", "winedevice.exe=;winepulse.drv=")
             // On gLinux on cloudtop the cups print server is
             // not accessible. This adds 20 seconds to wine startup
             // waiting for the connection to the server to timeout
@@ -157,13 +186,23 @@ impl Wine {
             .env("CUPS_SERVERROOT", "/dev/null")
             // On a system with a lot of fonts (like gLinux), wine can
             // take some time to process them (~8 seconds on gLinux)
-            // we don't "render" anything so we provide an fontconfig
+            // we don't "render" anything so we provide a fontconfig
             // file without any font
             .env("FONTCONFIG_FILE", &self.prefix.join("fonts.conf"))
+            // Controll the alsa configuration to be able to provide
+            // a device in a headless environment (the PTS need to play
+            // audio for the tester to verify it) and also to be
+            // able to save audio to a file
+            .env("ALSA_CONFIG_PATH", &self.prefix.join("alsa.conf"))
             .env("WINEDEBUG", "-all")
             .env("WINEPREFIX", &self.prefix)
             .env("USER", "pts")
             .current_dir(self.drive_c());
+
+        if let Some(audio_output_path) = audio_output_path {
+            command.env("ALSA_OUTPUT_FILE", audio_output_path);
+        }
+
         command
     }
 

@@ -26,7 +26,7 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
     fs::create_dir(&tmp).expect("Create dir");
 
     // TODO: check status
-    wine.command("installer.exe", true)
+    wine.command("installer.exe", true, None)
         .arg("/extract")
         .arg(r"C:\tmp")
         .status()

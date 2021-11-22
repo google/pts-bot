@@ -139,6 +139,7 @@ pub fn run<'wine, 'a, F>(
     profile: &str,
     test_case: &str,
     parameters: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
+    audio_output_path: Option<&str>,
     implicit_send: F,
 ) -> Messages<'wine, F>
 where
@@ -148,7 +149,7 @@ where
     let dir = wine.drive_c().join(PTS_PATH).join("bin");
 
     let mut process = wine
-        .command("server.exe", false)
+        .command("server.exe", false, audio_output_path)
         .current_dir(dir)
         .arg(port.com.as_ref().unwrap().to_uppercase())
         .arg(profile)

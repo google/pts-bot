@@ -123,6 +123,7 @@ impl<'pts> Profile<'pts> {
         test: &str,
         iut: &'pts mut I,
         pipe_hci: impl Fn(HCI) -> (),
+        audio_output_path: Option<&str>,
     ) -> impl Iterator<Item = Result<Event, io::Error>> + 'pts {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
         pipe_hci(port);
@@ -148,20 +149,27 @@ impl<'pts> Profile<'pts> {
 
         let parameters = pics.chain(pixit);
 
-        let messages = pts::run(wineport, &self.name, test, parameters, move |mmi, style| {
-            if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
-                iut.interact(Interaction {
-                    pts_addr: addr.get(),
-                    style,
-                    id: mmi::id_to_mmi(profile, raw_id).unwrap_or(&raw_id.to_string()),
-                    profile,
-                    test,
-                    description,
-                })
-            } else {
-                todo!();
-            }
-        });
+        let messages = pts::run(
+            wineport,
+            &self.name,
+            test,
+            parameters,
+            audio_output_path,
+            move |mmi, style| {
+                if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
+                    iut.interact(Interaction {
+                        pts_addr: addr.get(),
+                        style,
+                        id: mmi::id_to_mmi(profile, raw_id).unwrap_or(&raw_id.to_string()),
+                        profile,
+                        test,
+                        description,
+                    })
+                } else {
+                    todo!();
+                }
+            },
+        );
 
         let messages = messages.inspect(move |message| {
             if let Ok(Message::Addr { value }) = message {

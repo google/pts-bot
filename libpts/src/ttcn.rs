@@ -1,10 +1,10 @@
 use nom::{
     branch::alt,
-    bytes::complete::{take_until, take_while, take_while1},
+    bytes::complete::{tag, take_until, take_while, take_while1},
     character::complete::{char, one_of},
-    combinator::map,
-    multi::separated_list0,
-    sequence::{delimited, preceded, separated_pair, terminated},
+    combinator::{map, opt, recognize},
+    multi::{separated_list0, separated_list1},
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     IResult,
 };
 
@@ -34,11 +34,60 @@ fn space(input: &str) -> IResult<&str, &str> {
 }
 
 fn identifier(input: &str) -> IResult<&str, &str> {
-    take_while1(|c: char| c.is_alphanumeric() || c == '_' || c == '<' || c == '>')(input)
+    recognize(alt((
+        delimited(
+            char('<'),
+            take_while1(|c: char| c.is_alphanumeric() || c == '_' || c == ' '),
+            char('>'),
+        ),
+        take_while1(|c: char| c.is_alphanumeric() || c == '_'),
+    )))(input)
 }
 
 fn integer(input: &str) -> IResult<&str, &str> {
-    take_while1(|c: char| c.is_numeric())(input)
+    recognize(preceded(
+        opt(char('-')),
+        take_while1(|c: char| c.is_numeric()),
+    ))(input)
+}
+
+fn at_charstring(input: &str) -> IResult<&str, &str> {
+    // The PTS does not escape special characters when printing
+    // out TTCN.3 values, and we end up with double quotes inside charstring
+    // values.
+    // Luckily we can match unescaped quotes with a contextual grammar
+    // for the string contents, this occurs only in +CIND AT commands.
+
+    fn at_delimitor(input: &str) -> IResult<&str, &str> {
+        recognize(pair(char(','), space))(input)
+    }
+
+    let at_descr = delimited(char('"'), take_until("\""), char('"'));
+    let at_ind = delimited(
+        char('('),
+        separated_list1(
+            at_delimitor,
+            alt((
+                map(separated_pair(integer, char('-'), integer), |_| ()),
+                map(integer, |_| ()),
+            )),
+        ),
+        char(')'),
+    );
+
+    let (input, string) = recognize(delimited(
+        tag("\"+CIND:"),
+        separated_list1(
+            at_delimitor,
+            delimited(
+                char('('),
+                separated_pair(at_descr, at_delimitor, at_ind),
+                char(')'),
+            ),
+        ),
+        char('"'),
+    ))(input)?;
+    Ok((input, &string[1..string.len() - 1]))
 }
 
 fn charstring(input: &str) -> IResult<&str, &str> {
@@ -79,7 +128,7 @@ fn record(input: &str) -> IResult<&str, Vec<(String, TTCNValue)>> {
     )(input)
 }
 
-pub fn comma_separated_values(input: &str) -> IResult<&str, Vec<TTCNValue>> {
+fn comma_separated_values(input: &str) -> IResult<&str, Vec<TTCNValue>> {
     let (input, _) = space(input)?;
     if input.is_empty() {
         Ok((input, vec![]))
@@ -99,6 +148,7 @@ fn value(input: &str) -> IResult<&str, TTCNValue> {
             map(record, TTCNValue::Record),
             map(array, TTCNValue::Array),
             map(integer, |s| TTCNValue::Integer(String::from(s))),
+            map(at_charstring, |s| TTCNValue::CharString(String::from(s))),
             map(charstring, |s| TTCNValue::CharString(String::from(s))),
             special_string,
             map(char('?'), |_| TTCNValue::AnyValue),
@@ -109,7 +159,16 @@ fn value(input: &str) -> IResult<&str, TTCNValue> {
 }
 
 pub fn parse(input: &str) -> IResult<&str, TTCNValue> {
-    value(input)
+    delimited(space, preceded(opt(tag("PDU:")), value), space)(input)
+}
+
+pub fn parse_list(input: &str) -> IResult<&str, Vec<TTCNValue>> {
+    let (input, _) = space(input)?;
+    if input.is_empty() {
+        Ok((input, vec![]))
+    } else {
+        terminated(separated_list1(char(','), parse), space)(input)
+    }
 }
 
 fn flatten<'k, 'v>(key: &'k str, value: &'v TTCNValue) -> (Cow<'k, str>, &'v TTCNValue) {
@@ -190,19 +249,15 @@ impl fmt::Display for TTCNValue {
 
 #[cfg(test)]
 mod test {
-    use super::comma_separated_values;
     use super::parse;
+    use super::parse_list;
     use super::TTCNValue;
 
     #[test]
     fn test_identifier() {
         assert_eq!(
-            parse("word"),
-            Ok(("", TTCNValue::Identifier("word".to_owned())))
-        );
-        assert_eq!(
-            parse("_word"),
-            Ok(("", TTCNValue::Identifier("_word".to_owned())))
+            parse("WORD_word"),
+            Ok(("", TTCNValue::Identifier("WORD_word".to_owned())))
         );
         assert_eq!(
             parse("<word>"),
@@ -217,7 +272,6 @@ mod test {
     }
 
     #[test]
-    #[ignore] // TODO: fix this test
     fn test_negative_integer() {
         assert_eq!(parse("-42"), Ok(("", TTCNValue::Integer("-42".to_owned()))));
     }
@@ -255,6 +309,33 @@ mod test {
         assert_eq!(
             parse("\"wo\nrd\""),
             Ok(("", TTCNValue::CharString("wo\nrd".to_owned())))
+        );
+    }
+
+    #[test]
+    fn test_at_charstring() {
+        let input = r#""+CIND:("service",
+                           (0,
+                           1)),
+                           ("call",
+                           (0,
+                           1)),
+                           ("callsetup",
+                           (0-3)),
+                           ("callheld",
+                           (0-2)),
+                           ("signal",
+                           (0-5)),
+                           ("roam",
+                           (0-1)),
+                           ("battchg",
+                           (0-5))""#;
+        assert_eq!(
+            parse(input),
+            Ok((
+                "",
+                TTCNValue::CharString(input[1..input.len() - 1].to_owned())
+            ))
         );
     }
 
@@ -307,7 +388,7 @@ mod test {
 
     #[test]
     fn test_parse_comma_space() {
-        let result = comma_separated_values("   ");
+        let result = parse_list("   ");
         assert_eq!(result, Ok(("", vec![])));
     }
 }

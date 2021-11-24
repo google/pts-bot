@@ -54,11 +54,12 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
                     name: step.to_owned(),
                     values: Some(vec![]),
                 },
-                [":", number, "Enter", "Test", "Step", step, "(", .., ")"] => {
-                    let index = split[0..7].iter().map(|s| s.len()).sum::<usize>() + 6;
+                [":", number, "Enter", "Test", "Step", step, "(", .., ")"]
+                | ["A:", number, "Enter", "Test", "Step", step, "(", .., ")"] => {
+                    let index = split[0..7].iter().map(|s| s.len()).sum::<usize>() + 7;
                     let input = &message[index..message.len() - 1];
 
-                    let (input, values) = ttcn::comma_separated_values(input).unwrap();
+                    let (input, values) = ttcn::parse_list(input).unwrap();
                     assert!(input.is_empty());
 
                     Event {
@@ -69,14 +70,18 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
                         values: Some(values),
                     }
                 }
-                [":", number, "Exit", "", "Test", "Step", "", step] => Event {
+                [":", number, "Exit", "", "Test", "Step", "", step]
+                | ["A:", number, "Exit", "", "Test", "Step", "", step] => Event {
                     kind: EventKind::ExitStep,
                     time: None,
                     number: Some(number.to_owned()),
                     name: step.to_owned(),
                     values: None,
                 },
-                _ => todo!(),
+                _ => {
+                    println!("{}", message);
+                    todo!()
+                }
             }
         }
         LogType::SendEvent => {

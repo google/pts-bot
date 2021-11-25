@@ -37,7 +37,7 @@ struct Group {
 struct TestCase {
     #[serde(rename = "Name")]
     name: String,
-    #[serde(rename = "Mapping")]
+    #[serde(rename = "Mapping", default)]
     mapping: String,
     #[serde(rename = "Description", default)]
     description: String,

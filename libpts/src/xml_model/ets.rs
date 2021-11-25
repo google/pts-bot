@@ -10,7 +10,7 @@ use super::XMLModel;
 #[derive(Debug, Deserialize)]
 pub struct ETS {
     #[serde(rename = "ETSVersion")]
-    version: String,
+    version: Option<String>,
     #[serde(rename = "Profile")]
     profile: Profile,
 }

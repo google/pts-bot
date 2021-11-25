@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::process::Command;
@@ -55,20 +54,19 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
 
     fs::remove_dir_all(tmp).expect("Remove failed");
 
-    fs::read_dir(pts.join("bin/Bluetooth/PIXITX"))
-        .expect("Failed to read pixitx files")
-        .filter_map(|entry| {
-            let path = entry.as_ref().unwrap().path();
-            if path.extension() == Some(OsStr::new("PIXITX")) {
-                Some(path)
-            } else {
-                None
-            }
-        })
-        .for_each(|original| {
-            let new = original.with_extension("pixitx");
-            fs::rename(original, new).expect("PIXITX file's rename failed");
-        });
+    let pixitx =
+        fs::read_dir(pts.join("bin/Bluetooth/PIXITX")).expect("Failed to read pixitx directory");
+    let picsx =
+        fs::read_dir(pts.join("bin/Bluetooth/PICSX")).expect("Failed to read picsx directory");
+
+    for entry in pixitx.chain(picsx) {
+        let path = entry.unwrap().path();
+
+        if let Some(extension) = path.extension() {
+            let new = path.with_extension(extension.to_ascii_lowercase());
+            fs::rename(path, new).expect("Rename failed");
+        }
+    }
 }
 
 pub fn is_pts_installation_needed(wine: &Wine) -> bool {

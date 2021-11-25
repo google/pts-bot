@@ -36,6 +36,9 @@ pub trait XMLModel<'a>: Deserialize<'a> {
             Error::FileNotFound(err, String::from(path.to_str().unwrap_or("Unknown")))
         })?;
 
+        // Strip BOM if present as it's not accepted by the xml parser
+        let content = content.strip_prefix('\u{feff}').unwrap_or(&*content);
+
         let mut de =
             Deserializer::new_from_reader(content.as_bytes()).non_contiguous_seq_elements(true);
         let value: Self = Self::deserialize(&mut de).map_err(|err| Error::ParseFailed(err))?;

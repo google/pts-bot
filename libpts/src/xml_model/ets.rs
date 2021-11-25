@@ -39,7 +39,7 @@ struct TestCase {
     name: String,
     #[serde(rename = "Mapping")]
     mapping: String,
-    #[serde(rename = "Description")]
+    #[serde(rename = "Description", default)]
     description: String,
 }
 

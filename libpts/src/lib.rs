@@ -38,9 +38,10 @@ pub struct Interaction<'a> {
 
 /// Implementation Under Test
 pub trait IUT {
-    fn bd_addr(&self) -> BdAddr;
+    type Err;
 
-    fn interact(&mut self, interaction: Interaction) -> String;
+    fn bd_addr(&self) -> BdAddr;
+    fn interact(&mut self, interaction: Interaction) -> Result<String, Self::Err>;
 }
 
 pub type HCI = HCIPort;
@@ -66,6 +67,8 @@ pub enum InstallError {
     #[error("Server install failed ({0})")]
     Server(#[source] io::Error),
 }
+
+pub type RunError<E> = pts::Error<E>;
 
 impl PTS {
     pub fn install(directory: PathBuf, installer: impl io::Read) -> Result<Self, InstallError> {
@@ -124,7 +127,7 @@ impl<'pts> Profile<'pts> {
         iut: &'pts mut I,
         pipe_hci: impl Fn(HCI) -> (),
         audio_output_path: Option<&str>,
-    ) -> impl Iterator<Item = Result<Event, io::Error>> + 'pts {
+    ) -> impl Iterator<Item = Result<Event, RunError<I::Err>>> + 'pts {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
         pipe_hci(port);
 

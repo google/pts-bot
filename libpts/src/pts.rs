@@ -1,12 +1,11 @@
-use std::io::BufRead;
-use std::io::BufReader;
-use std::io::Write;
-use std::process::Stdio;
-use std::process::{Child, ChildStdin, ChildStdout};
+use std::io::{self, BufRead, BufReader, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Stdio};
 
 use serde::Deserialize;
 use serde_json;
 use serde_repr::Deserialize_repr;
+
+use thiserror::Error;
 
 use crate::bd_addr::BdAddr;
 use crate::hci::WineHCIPort;
@@ -80,10 +79,15 @@ pub enum Message {
     Raw(String),
 }
 
-pub struct Messages<'wine, F>
-where
-    F: FnMut(&str, MMIStyle) -> String,
-{
+#[derive(Debug, Error)]
+pub enum Error<E> {
+    #[error("IO {0}")]
+    IO(#[source] io::Error),
+    #[error(transparent)]
+    ImplicitSend(#[from] E),
+}
+
+pub struct Messages<'wine, F> {
     process: Child,
     // The port need to live as much time as the process
     _port: WineHCIPort<'wine>,
@@ -92,11 +96,11 @@ where
     stdout: BufReader<ChildStdout>,
 }
 
-impl<'wine, F> Iterator for Messages<'wine, F>
+impl<'wine, F, E> Iterator for Messages<'wine, F>
 where
-    F: FnMut(&str, MMIStyle) -> String,
+    F: FnMut(&str, MMIStyle) -> Result<String, E>,
 {
-    type Item = std::io::Result<Message>;
+    type Item = Result<Message, Error<E>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut line = String::new();
@@ -110,8 +114,16 @@ where
                         ref style,
                     } = message
                     {
-                        let answer = (self.implicit_send)(description, style.clone());
-                        write!(&mut self.stdin, "{}\n", answer);
+                        let result = match (self.implicit_send)(description, style.clone()) {
+                            Ok(answer) => {
+                                write!(&mut self.stdin, "{}\n", answer).map_err(Error::IO)
+                            }
+                            Err(e) => Err(Error::ImplicitSend(e)),
+                        };
+
+                        if let Err(e) = result {
+                            return Some(Err(e));
+                        }
                     }
 
                     Some(Ok(message))
@@ -119,22 +131,19 @@ where
                     Some(Ok(Message::Raw(line)))
                 }
             }
-            Err(e) => Some(Err(e)),
+            Err(e) => Some(Err(Error::IO(e))),
         }
     }
 }
 
-impl<'wine, F> std::ops::Drop for Messages<'wine, F>
-where
-    F: FnMut(&str, MMIStyle) -> String,
-{
+impl<'wine, F> std::ops::Drop for Messages<'wine, F> {
     fn drop(&mut self) {
         // TODO: handle failure
         let _ = self.process.kill().and_then(|_| self.process.wait());
     }
 }
 
-pub fn run<'wine, 'a, F>(
+pub fn run<'wine, 'a, F, E>(
     port: WineHCIPort<'wine>,
     profile: &str,
     test_case: &str,
@@ -143,7 +152,7 @@ pub fn run<'wine, 'a, F>(
     implicit_send: F,
 ) -> Messages<'wine, F>
 where
-    F: FnMut(&str, MMIStyle) -> String,
+    F: FnMut(&str, MMIStyle) -> Result<String, E>,
 {
     let wine = &port.wine;
     let dir = wine.drive_c().join(PTS_PATH).join("bin");

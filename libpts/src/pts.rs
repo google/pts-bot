@@ -1,13 +1,9 @@
-use std::io::{self, BufRead, BufReader, Write};
-use std::process::{Child, ChildStdout, Stdio};
-use std::sync::mpsc;
-use std::thread;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, Stdio};
 
 use serde::Deserialize;
 use serde_json;
 use serde_repr::Deserialize_repr;
-
-use thiserror::Error;
 
 use crate::bd_addr::BdAddr;
 use crate::hci::WineHCIPort;
@@ -48,7 +44,7 @@ pub enum LogType {
     CoordinationMessage = 29,
 }
 
-#[derive(Deserialize_repr, PartialEq, Debug, Clone)]
+#[derive(Deserialize_repr, PartialEq, Debug, Clone, Copy)]
 #[repr(u32)]
 pub enum MMIStyle {
     OkCancel1 = 0x11041,
@@ -81,113 +77,63 @@ pub enum Message {
     Raw(String),
 }
 
-#[derive(Debug, Error)]
-pub enum Error<E> {
-    #[error("IO {0}")]
-    IO(#[source] io::Error),
-    #[error(transparent)]
-    ImplicitSend(#[from] E),
-}
+pub struct Server<'wine>(Child, WineHCIPort<'wine>);
 
-pub struct Messages<'wine, E> {
-    process: Child,
-    // The port need to live as much time as the process
-    _port: WineHCIPort<'wine>,
-    stdout: BufReader<ChildStdout>,
-    interaction_tx: mpsc::Sender<(String, MMIStyle)>,
-    error_rx: mpsc::Receiver<Error<E>>,
-}
+impl<'wine> Server<'wine> {
+    pub fn spawn<'a>(
+        port: WineHCIPort<'wine>,
+        profile: &str,
+        test_case: &str,
+        parameters: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
+        audio_output_path: Option<&str>,
+    ) -> Self {
+        let wine = &port.wine;
+        let dir = wine.drive_c().join(PTS_PATH).join("bin");
 
-impl<'wine, E> Iterator for Messages<'wine, E> {
-    type Item = Result<Message, Error<E>>;
+        let process = wine
+            .command("server.exe", false, audio_output_path)
+            .current_dir(dir)
+            .arg(port.com.as_ref().unwrap().to_uppercase())
+            .arg(profile)
+            .arg(test_case)
+            // FIXME: remove the to_vec() when gLinux rustc version >= 1.53.0
+            .args(parameters.flat_map(|(key, value_type, value)| [key, value_type, value].to_vec()))
+            .stdout(Stdio::piped())
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to launch server");
+        Self(process, port)
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut line = String::new();
+    pub fn into_parts(
+        mut self,
+    ) -> (
+        impl Iterator<Item = std::io::Result<Message>> + 'wine,
+        impl FnMut(&str) -> () + 'wine,
+    ) {
+        let stdout = self.0.stdout.take().unwrap();
+        let stdout = BufReader::new(stdout);
 
-        if let Ok(error) = self.error_rx.try_recv() {
-            return Some(Err(error));
-        }
-
-        match self.stdout.read_line(&mut line) {
-            Ok(0) => None,
-            Ok(_size) => {
-                if let Ok(message) = serde_json::from_str(&line) {
-                    if let Message::ImplicitSend {
-                        ref description,
-                        ref style,
-                    } = message
-                    {
-                        self.interaction_tx
-                            .send((description.to_owned(), style.clone()))
-                            .unwrap();
+        (
+            stdout.lines().map(|result| {
+                result.map(|line| {
+                    if let Ok(message) = serde_json::from_str(&line) {
+                        message
+                    } else {
+                        Message::Raw(line)
                     }
-
-                    Some(Ok(message))
-                } else {
-                    Some(Ok(Message::Raw(line)))
-                }
-            }
-            Err(e) => Some(Err(Error::IO(e))),
-        }
+                })
+            }),
+            move |answer| {
+                write!(self.0.stdin.as_mut().unwrap(), "{}\n", answer);
+            },
+        )
     }
 }
 
-impl<'wine, E> std::ops::Drop for Messages<'wine, E> {
+impl<'wine> std::ops::Drop for Server<'wine> {
     fn drop(&mut self) {
         // TODO: handle failure
-        let _ = self.process.kill().and_then(|_| self.process.wait());
-    }
-}
-
-pub fn run<'wine, 'a, E: Send + 'static>(
-    port: WineHCIPort<'wine>,
-    profile: &str,
-    test_case: &str,
-    parameters: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
-    audio_output_path: Option<&str>,
-    mut implicit_send: impl FnMut(&str, MMIStyle) -> Result<String, E> + Send + 'static,
-) -> Messages<'wine, E> {
-    let wine = &port.wine;
-    let dir = wine.drive_c().join(PTS_PATH).join("bin");
-
-    let mut process = wine
-        .command("server.exe", false, audio_output_path)
-        .current_dir(dir)
-        .arg(port.com.as_ref().unwrap().to_uppercase())
-        .arg(profile)
-        .arg(test_case)
-        // FIXME: remove the to_vec() when gLinux rustc version >= 1.53.0
-        .args(parameters.flat_map(|(key, value_type, value)| [key, value_type, value].to_vec()))
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("Failed to launch server");
-
-    let stdout = process.stdout.take().unwrap();
-    let mut stdin = process.stdin.take().unwrap();
-    let stdout = BufReader::new(stdout);
-
-    let (interaction_tx, interaction_rx) = mpsc::channel::<(String, MMIStyle)>();
-    let (error_tx, error_rx) = mpsc::channel();
-
-    thread::spawn(move || {
-        while let Ok((description, style)) = interaction_rx.recv() {
-            let result = match implicit_send(&*description, style) {
-                Ok(answer) => write!(&mut stdin, "{}\n", answer).map_err(Error::IO),
-                Err(e) => Err(Error::ImplicitSend(e)),
-            };
-
-            if let Err(e) = result {
-                error_tx.send(e).unwrap();
-            }
-        }
-    });
-
-    Messages {
-        process,
-        _port: port,
-        stdout,
-        interaction_tx,
-        error_rx,
+        let _ = self.0.kill().and_then(|_| self.0.wait());
     }
 }

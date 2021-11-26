@@ -11,11 +11,9 @@ mod ttcn;
 mod wine;
 mod xml_model;
 
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 use thiserror::Error;
 
@@ -60,7 +58,13 @@ pub enum InstallError {
     Server(#[source] io::Error),
 }
 
-pub type RunError<E> = pts::Error<E>;
+#[derive(Debug, Error)]
+pub enum RunError<E> {
+    #[error("IO {0}")]
+    IO(#[source] io::Error),
+    #[error(transparent)]
+    Interact(#[from] E),
+}
 
 impl PTS {
     pub fn install(directory: PathBuf, installer: impl io::Read) -> Result<Self, InstallError> {
@@ -124,9 +128,6 @@ impl<'pts> Profile<'pts> {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
         pipe_hci(port);
 
-        let pts_addr = Arc::new(Mutex::new(Cell::new(BdAddr::NULL)));
-        let pts_addr_ptr = pts_addr.clone();
-
         let octet_addr = format!("{:#}", addr);
 
         let pics = self.pics.iter().map(|row| {
@@ -145,32 +146,40 @@ impl<'pts> Profile<'pts> {
 
         let parameters = pics.chain(pixit);
 
-        let messages = pts::run(
-            wineport,
-            &self.name,
-            test,
-            parameters,
-            audio_output_path,
-            move |mmi, style| {
-                if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
+        let (mut messages, mut send_answer) =
+            pts::Server::spawn(wineport, &self.name, test, parameters, audio_output_path)
+                .into_parts();
+
+        let pts_addr = messages
+            .find_map(|message| match message {
+                Ok(Message::Addr { value }) => Some(value),
+                _ => None,
+            })
+            .unwrap();
+
+        let messages = messages.map(move |message| {
+            if let Ok(Message::ImplicitSend {
+                description: mmi,
+                style,
+            }) = &message
+            {
+                let answer = if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
                     interact(Interaction {
-                        pts_addr: pts_addr.lock().unwrap().get(),
-                        style,
+                        pts_addr,
+                        style: *style,
                         id: mmi::id_to_mmi(profile, raw_id).unwrap_or(&raw_id.to_string()),
                         profile,
                         test,
                         description,
                     })
+                    .map_err(RunError::Interact)?
                 } else {
                     todo!();
-                }
-            },
-        );
-
-        let messages = messages.inspect(move |message| {
-            if let Ok(Message::Addr { value }) = message {
-                pts_addr_ptr.lock().unwrap().set(*value);
+                };
+                send_answer(&*answer);
             }
+
+            message.map_err(RunError::IO)
         });
 
         log::parse(messages)

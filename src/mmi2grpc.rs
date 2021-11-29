@@ -1,10 +1,12 @@
 use super::Interaction;
 use pyo3::{
-    prelude::{PyResult, Python},
+    prelude::{PyErr, PyResult, Python},
     types::{PyBytes, PyModule, PyString},
 };
 
 pub struct Mmi2grpc {}
+
+pub type Error = PyErr;
 
 impl Mmi2grpc {
     pub fn new() -> Self {
@@ -15,7 +17,7 @@ impl Mmi2grpc {
         })
     }
 
-    pub fn reset(&self) -> PyResult<()> {
+    pub fn reset(&self) -> Result<(), Error> {
         Python::with_gil(|py| -> PyResult<()> {
             PyModule::import(py, "mmi2grpc")?
                 .getattr("reset")?
@@ -24,7 +26,7 @@ impl Mmi2grpc {
         })
     }
 
-    pub fn read_local_address(&self) -> PyResult<Vec<u8>> {
+    pub fn read_local_address(&self) -> Result<Vec<u8>, Error> {
         Python::with_gil(|py| -> PyResult<Vec<u8>> {
             Ok(PyModule::import(py, "mmi2grpc")?
                 .getattr("read_local_address")?
@@ -35,7 +37,7 @@ impl Mmi2grpc {
         })
     }
 
-    pub fn interact(&self, interaction: Interaction<'_>) -> PyResult<String> {
+    pub fn interact(&self, interaction: Interaction<'_>) -> Result<String, Error> {
         Python::with_gil(|py| -> PyResult<()> {
             let interaction_id = PyString::new(py, interaction.id);
             let profile = PyString::new(py, interaction.profile);
@@ -50,8 +52,7 @@ impl Mmi2grpc {
                 None,
             )?;
             Ok(())
-        })
-        .unwrap();
+        })?;
 
         Ok(String::from("Ok"))
     }

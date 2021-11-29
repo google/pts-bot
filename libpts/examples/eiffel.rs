@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, Write};
@@ -11,7 +10,7 @@ use std::thread;
 
 use anyhow::{Context, Result};
 use dirs;
-use libpts::{logger, BdAddr, Interaction, MMIStyle, HCI, IUT, PTS};
+use libpts::{logger, BdAddr, Interaction, MMIStyle, HCI, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -55,21 +54,8 @@ impl Eiffel {
             stdin,
         })
     }
-}
 
-impl Drop for Eiffel {
-    fn drop(&mut self) {
-        println!("Terminating eiffel");
-        let _ = self.process.kill().and_then(|_| self.process.wait());
-    }
-}
-
-impl IUT for Eiffel {
-    fn bd_addr(&self) -> BdAddr {
-        self.addr
-    }
-
-    fn interact(&mut self, interaction: Interaction) -> String {
+    fn interact(&mut self, interaction: Interaction) -> io::Result<String> {
         let values = match interaction.style {
             MMIStyle::OkCancel1 | MMIStyle::OkCancel2 => "2|OK|Cancel",
             MMIStyle::Ok => "1|OK",
@@ -93,9 +79,16 @@ impl IUT for Eiffel {
 
         self.stdin.flush().unwrap();
 
-        let answer = self.lines.next().unwrap().unwrap();
+        let answer = self.lines.next().unwrap();
 
         answer
+    }
+}
+
+impl Drop for Eiffel {
+    fn drop(&mut self) {
+        println!("Terminating eiffel");
+        let _ = self.process.kill().and_then(|_| self.process.wait());
     }
 }
 
@@ -214,7 +207,13 @@ fn main() -> Result<()> {
         .tests()
         .map(|test| {
             let mut eiffel = Eiffel::spawn(&opts.eiffel, &test)?;
-            let events = profile.run_test(&*test, &mut eiffel, connect_to_rootcanal);
+            let events = profile.run_test(
+                &*test,
+                eiffel.addr,
+                move |i| eiffel.interact(i),
+                connect_to_rootcanal,
+                None,
+            );
 
             let verdict = logger::print(events).context("Runtime Error")?;
             let verdict = verdict.context("No Verdict ?")?;

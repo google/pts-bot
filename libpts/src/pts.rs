@@ -1,5 +1,7 @@
 use std::io::{self, BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Stdio};
+use std::process::{Child, ChildStdout, Stdio};
+use std::sync::mpsc;
+use std::thread;
 
 use serde::Deserialize;
 use serde_json;
@@ -87,23 +89,24 @@ pub enum Error<E> {
     ImplicitSend(#[from] E),
 }
 
-pub struct Messages<'wine, F> {
+pub struct Messages<'wine, E> {
     process: Child,
     // The port need to live as much time as the process
     _port: WineHCIPort<'wine>,
-    implicit_send: F,
-    stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
+    interaction_tx: mpsc::Sender<(String, MMIStyle)>,
+    error_rx: mpsc::Receiver<Error<E>>,
 }
 
-impl<'wine, F, E> Iterator for Messages<'wine, F>
-where
-    F: FnMut(&str, MMIStyle) -> Result<String, E>,
-{
+impl<'wine, E> Iterator for Messages<'wine, E> {
     type Item = Result<Message, Error<E>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut line = String::new();
+
+        if let Ok(error) = self.error_rx.try_recv() {
+            return Some(Err(error));
+        }
 
         match self.stdout.read_line(&mut line) {
             Ok(0) => None,
@@ -114,16 +117,9 @@ where
                         ref style,
                     } = message
                     {
-                        let result = match (self.implicit_send)(description, style.clone()) {
-                            Ok(answer) => {
-                                write!(&mut self.stdin, "{}\n", answer).map_err(Error::IO)
-                            }
-                            Err(e) => Err(Error::ImplicitSend(e)),
-                        };
-
-                        if let Err(e) = result {
-                            return Some(Err(e));
-                        }
+                        self.interaction_tx
+                            .send((description.to_owned(), style.clone()))
+                            .unwrap();
                     }
 
                     Some(Ok(message))
@@ -136,24 +132,21 @@ where
     }
 }
 
-impl<'wine, F> std::ops::Drop for Messages<'wine, F> {
+impl<'wine, E> std::ops::Drop for Messages<'wine, E> {
     fn drop(&mut self) {
         // TODO: handle failure
         let _ = self.process.kill().and_then(|_| self.process.wait());
     }
 }
 
-pub fn run<'wine, 'a, F, E>(
+pub fn run<'wine, 'a, E: Send + 'static>(
     port: WineHCIPort<'wine>,
     profile: &str,
     test_case: &str,
     parameters: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
     audio_output_path: Option<&str>,
-    implicit_send: F,
-) -> Messages<'wine, F>
-where
-    F: FnMut(&str, MMIStyle) -> Result<String, E>,
-{
+    mut implicit_send: impl FnMut(&str, MMIStyle) -> Result<String, E> + Send + 'static,
+) -> Messages<'wine, E> {
     let wine = &port.wine;
     let dir = wine.drive_c().join(PTS_PATH).join("bin");
 
@@ -171,14 +164,30 @@ where
         .expect("Failed to launch server");
 
     let stdout = process.stdout.take().unwrap();
-    let stdin = process.stdin.take().unwrap();
+    let mut stdin = process.stdin.take().unwrap();
     let stdout = BufReader::new(stdout);
+
+    let (interaction_tx, interaction_rx) = mpsc::channel::<(String, MMIStyle)>();
+    let (error_tx, error_rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        while let Ok((description, style)) = interaction_rx.recv() {
+            let result = match implicit_send(&*description, style) {
+                Ok(answer) => write!(&mut stdin, "{}\n", answer).map_err(Error::IO),
+                Err(e) => Err(Error::ImplicitSend(e)),
+            };
+
+            if let Err(e) = result {
+                error_tx.send(e).unwrap();
+            }
+        }
+    });
 
     Messages {
         process,
         _port: port,
-        implicit_send,
-        stdin,
         stdout,
+        interaction_tx,
+        error_rx,
     }
 }

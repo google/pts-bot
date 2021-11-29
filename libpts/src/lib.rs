@@ -13,9 +13,8 @@ mod xml_model;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::io;
-use std::ops::Fn;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use thiserror::Error;
 
@@ -34,14 +33,6 @@ pub struct Interaction<'a> {
     pub profile: &'a str,
     pub test: &'a str,
     pub description: &'a str,
-}
-
-/// Implementation Under Test
-pub trait IUT {
-    type Err;
-
-    fn bd_addr(&self) -> BdAddr;
-    fn interact(&mut self, interaction: Interaction) -> Result<String, Self::Err>;
 }
 
 pub type HCI = HCIPort;
@@ -121,20 +112,21 @@ impl<'pts> Profile<'pts> {
         })
     }
 
-    pub fn run_test<I: IUT>(
+    pub fn run_test<E: Send + 'static>(
         &self,
         test: &str,
-        iut: &'pts mut I,
-        pipe_hci: impl Fn(HCI) -> (),
+        addr: BdAddr,
+        mut interact: impl FnMut(Interaction) -> Result<String, E> + Send + 'static,
+        mut pipe_hci: impl FnMut(HCI) -> (),
         audio_output_path: Option<&str>,
-    ) -> impl Iterator<Item = Result<Event, RunError<I::Err>>> + 'pts {
+    ) -> impl Iterator<Item = Result<Event, RunError<E>>> + 'pts {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
         pipe_hci(port);
 
-        let addr = Rc::new(Cell::new(BdAddr::NULL));
-        let addr_ptr = addr.clone();
+        let pts_addr = Arc::new(Mutex::new(Cell::new(BdAddr::NULL)));
+        let pts_addr_ptr = pts_addr.clone();
 
-        let bd_addr = format!("{:#}", iut.bd_addr());
+        let octet_addr = format!("{:#}", addr);
 
         let pics = self.pics.iter().map(|row| {
             let value = self.pts.ics.get(&row.name).unwrap_or(&row.value);
@@ -142,7 +134,7 @@ impl<'pts> Profile<'pts> {
             (&*row.name, "BOOLEAN", value)
         });
         let pixit = self.pixit.iter().map(|row| match &*row.name {
-            "TSPX_bd_addr_iut" => ("TSPX_bd_addr_iut", "OCTETSTRING", &*bd_addr),
+            "TSPX_bd_addr_iut" => ("TSPX_bd_addr_iut", "OCTETSTRING", &*octet_addr),
             "TSPX_delete_link_key" => ("TSPX_delete_link_key", "BOOLEAN", "TRUE"),
             _ => {
                 let value = self.pts.ixit.get(&row.name).unwrap_or(&row.value);
@@ -160,8 +152,8 @@ impl<'pts> Profile<'pts> {
             audio_output_path,
             move |mmi, style| {
                 if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
-                    iut.interact(Interaction {
-                        pts_addr: addr.get(),
+                    interact(Interaction {
+                        pts_addr: pts_addr.lock().unwrap().get(),
                         style,
                         id: mmi::id_to_mmi(profile, raw_id).unwrap_or(&raw_id.to_string()),
                         profile,
@@ -176,7 +168,7 @@ impl<'pts> Profile<'pts> {
 
         let messages = messages.inspect(move |message| {
             if let Ok(Message::Addr { value }) = message {
-                addr_ptr.set(*value);
+                pts_addr_ptr.lock().unwrap().set(*value);
             }
         });
 

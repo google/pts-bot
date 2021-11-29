@@ -1,13 +1,14 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::net::{Ipv4Addr, Shutdown, TcpStream};
 use std::path::PathBuf;
 use std::thread;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use dirs;
-use libpts::{logger, HCIPort, Interaction, IUT, PTS};
+use libpts::{logger, BdAddr, Interaction, HCI, IUT, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -18,7 +19,7 @@ use mmi2grpc::Mmi2grpc;
 use termion::{color, style};
 
 struct Host {
-    addr: String,
+    addr: BdAddr,
     mmi2grpc: Mmi2grpc,
 }
 
@@ -30,11 +31,12 @@ impl Host {
         mmi2grpc.reset()?;
 
         println!("Reading local address ...");
-        let addr = mmi2grpc
-            .read_local_address()?
-            .iter()
-            .map(|&c| format!("{:02X}", c))
-            .collect();
+        let addr = BdAddr::new(
+            mmi2grpc
+                .read_local_address()?
+                .try_into()
+                .map_err(|_| Error::msg("Invalid address size"))?,
+        );
 
         println!("local address: {}", addr);
         Ok(Self { addr, mmi2grpc })
@@ -42,16 +44,18 @@ impl Host {
 }
 
 impl IUT for Host {
-    fn bd_addr(&self) -> &str {
-        &self.addr
+    type Err = mmi2grpc::Error;
+
+    fn bd_addr(&self) -> BdAddr {
+        self.addr
     }
 
-    fn interact(&mut self, interaction: Interaction) -> String {
-        self.mmi2grpc.interact(interaction).unwrap()
+    fn interact(&mut self, interaction: Interaction) -> std::result::Result<String, Self::Err> {
+        self.mmi2grpc.interact(interaction)
     }
 }
 
-fn connect_to_rootcanal(port: HCIPort) {
+fn connect_to_rootcanal(port: HCI) {
     let opts = Opts::from_args();
     let rootcanal_port = opts.rootcanal;
     let mut hcitx = port.clone();
@@ -151,8 +155,7 @@ fn main() -> Result<()> {
     let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
     cache.push("pts");
 
-    let mut pts =
-        PTS::install(cache, connect_to_rootcanal, installer).context("Failed to create PTS")?;
+    let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;
@@ -187,7 +190,7 @@ fn main() -> Result<()> {
         .into_iter()
         .map(|test| {
             let mut host = Host::create()?;
-            let events = profile.run_test(&*test, &mut host);
+            let events = profile.run_test(&*test, &mut host, connect_to_rootcanal, None);
 
             let verdict = logger::print(events).context("Runtime Error")?;
             let verdict = verdict.context("No Verdict ?")?;

@@ -1,19 +1,42 @@
-use super::Interaction;
+use std::fmt;
+
 use pyo3::{
     prelude::{PyErr, PyResult, Python},
     types::{PyBytes, PyModule, PyString},
 };
 
-pub struct Mmi2grpc {}
+use super::Interaction;
 
-pub type Error = PyErr;
+pub struct Mmi2grpc;
+
+#[derive(Debug)]
+pub struct Error(PyErr);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let value = Python::with_gil(|py| -> PyResult<String> {
+            let io = PyModule::import(py, "io")?;
+            let stringio = io.getattr("StringIO")?.call0()?;
+            let sys = PyModule::import(py, "sys")?;
+            let old_stderr = sys.getattr("stderr")?;
+            sys.setattr("stderr", stringio)?;
+            self.0.print(py);
+            sys.setattr("stderr", old_stderr)?;
+
+            Ok(stringio.call_method0("getvalue")?.extract()?)
+        });
+        write!(f, "{}", value.unwrap())
+    }
+}
+
+impl std::error::Error for Error {}
 
 impl Mmi2grpc {
     pub fn new() -> Self {
         Python::with_gil(|py| -> Self {
             py.run("import sys; sys.path.append('mmi2grpc/')", None, None)
-                .expect("Should not failed");
-            Self {}
+                .expect("Should not fail");
+            Self
         })
     }
 
@@ -24,6 +47,7 @@ impl Mmi2grpc {
                 .call((), None)?;
             Ok(())
         })
+        .map_err(Error)
     }
 
     pub fn read_local_address(&self) -> Result<Vec<u8>, Error> {
@@ -35,6 +59,7 @@ impl Mmi2grpc {
                 .as_bytes()
                 .to_vec())
         })
+        .map_err(Error)
     }
 
     pub fn interact(&self, interaction: Interaction<'_>) -> Result<String, Error> {
@@ -52,7 +77,8 @@ impl Mmi2grpc {
                 None,
             )?;
             Ok(())
-        })?;
+        })
+        .map_err(Error)?;
 
         Ok(String::from("Ok"))
     }

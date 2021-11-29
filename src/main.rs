@@ -15,8 +15,6 @@ use structopt::StructOpt;
 mod mmi2grpc;
 use mmi2grpc::Mmi2grpc;
 
-const ROOTCANAL_PORT: u16 = 6402;
-
 use termion::{color, style};
 
 struct Host {
@@ -54,9 +52,11 @@ impl IUT for Host {
 }
 
 fn connect_to_rootcanal(port: HCIPort) {
+    let opts = Opts::from_args();
+    let rootcanal_port = opts.rootcanal;
     let mut hcitx = port.clone();
     let mut hcirx = port;
-    let tcp = TcpStream::connect((Ipv4Addr::LOCALHOST, ROOTCANAL_PORT)).expect("Connect");
+    let tcp = TcpStream::connect((Ipv4Addr::LOCALHOST, rootcanal_port)).expect("Connect");
     let mut tcptx = tcp.try_clone().expect("Clone");
     let mut tcprx = tcp;
     thread::spawn(move || {
@@ -88,6 +88,10 @@ struct Opts {
 
     /// All tests under this prefix will be run
     test_prefix: String,
+
+    /// rootcanal hci port
+    #[structopt(short, long, default_value = "6402")]
+    rootcanal: u16,
 }
 
 fn report_results(results: Vec<(String, String)>) {

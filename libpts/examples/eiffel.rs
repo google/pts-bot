@@ -112,7 +112,7 @@ fn connect_to_rootcanal(port: HCI) {
 #[derive(Debug, Deserialize)]
 struct Config {
     ics: HashMap<String, bool>,
-    ixit: HashMap<String, String>,
+    ixit: HashMap<String, HashMap<String, String>>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -129,6 +129,10 @@ struct Opts {
     /// Eiffel pts binary to use as Implementation Under Test (IUT)
     #[structopt(short, long, parse(from_os_str))]
     eiffel: PathBuf,
+
+    /// Filter tests to execute
+    #[structopt(short, long)]
+    test: Option<String>,
 }
 
 fn report_results(results: Vec<(String, String)>) {
@@ -192,7 +196,16 @@ fn main() -> Result<()> {
             pts.set_ics(&*ics, value);
         }
 
-        for (ixit, value) in config.ixit {
+        let pixitx = config.ixit.get("default").context("default IXIT missing")?;
+        for (ixit, value) in pixitx {
+            pts.set_ixit(&*ixit, &*value);
+        }
+
+        let pixitx = config
+            .ixit
+            .get(&opts.profile)
+            .context("IXIT missing for selected profile")?;
+        for (ixit, value) in pixitx {
             pts.set_ixit(&*ixit, &*value);
         }
     }
@@ -205,6 +218,7 @@ fn main() -> Result<()> {
 
     let results = profile
         .tests()
+        .filter(|test| opts.test.is_none() || opts.test.as_ref() == Some(test))
         .map(|test| {
             let mut eiffel = Eiffel::spawn(&opts.eiffel, &test)?;
             let events = profile.run_test(

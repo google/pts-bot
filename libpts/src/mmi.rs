@@ -11,7 +11,7 @@ pub fn parse(description: &str) -> Option<(u32, &str, &str, &str)> {
     let (test, profile) = split_once(header, ",")?;
 
     let id = id.parse().ok()?;
-    Some((id, test, profile, description))
+    Some((id, test.trim(), profile.trim(), description))
 }
 
 #[cfg(test)]

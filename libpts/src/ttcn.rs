@@ -138,7 +138,7 @@ fn comma_separated_values(input: &str) -> IResult<&str, Vec<TTCNValue>> {
 }
 
 fn array(input: &str) -> IResult<&str, Vec<TTCNValue>> {
-    delimited(one_of("{["), comma_separated_values, one_of("}]"))(input)
+    delimited(one_of("({["), comma_separated_values, one_of("}])"))(input)
 }
 
 fn value(input: &str) -> IResult<&str, TTCNValue> {

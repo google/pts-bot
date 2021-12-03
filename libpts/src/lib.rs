@@ -1,3 +1,4 @@
+mod at;
 mod bd_addr;
 mod compat;
 mod hci;

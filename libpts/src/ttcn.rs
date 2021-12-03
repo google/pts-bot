@@ -4,7 +4,7 @@ use nom::{
     character::complete::{char, one_of},
     combinator::{map, opt, recognize},
     multi::{separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, separated_pair, terminated},
+    sequence::{delimited, preceded, separated_pair, terminated},
     IResult,
 };
 
@@ -12,6 +12,8 @@ use termion::{color, style};
 
 use std::borrow::Cow;
 use std::fmt;
+
+use crate::at;
 
 #[derive(Debug, PartialEq)]
 pub enum TTCNValue {
@@ -29,7 +31,6 @@ pub enum TTCNValue {
 
 fn space(input: &str) -> IResult<&str, &str> {
     let chars = " \t\r\n";
-
     take_while(move |c| chars.contains(c))(input)
 }
 
@@ -57,37 +58,7 @@ fn at_charstring(input: &str) -> IResult<&str, &str> {
     // values.
     // Luckily we can match unescaped quotes with a contextual grammar
     // for the string contents, this occurs only in +CIND AT commands.
-
-    fn at_delimitor(input: &str) -> IResult<&str, &str> {
-        recognize(pair(char(','), space))(input)
-    }
-
-    let at_descr = delimited(char('"'), take_until("\""), char('"'));
-    let at_ind = delimited(
-        char('('),
-        separated_list1(
-            at_delimitor,
-            alt((
-                map(separated_pair(integer, char('-'), integer), |_| ()),
-                map(integer, |_| ()),
-            )),
-        ),
-        char(')'),
-    );
-
-    let (input, string) = recognize(delimited(
-        tag("\"+CIND:"),
-        separated_list1(
-            at_delimitor,
-            delimited(
-                char('('),
-                separated_pair(at_descr, at_delimitor, at_ind),
-                char(')'),
-            ),
-        ),
-        char('"'),
-    ))(input)?;
-    Ok((input, &string[1..string.len() - 1]))
+    delimited(char('"'), at::parse, char('"'))(input)
 }
 
 fn charstring(input: &str) -> IResult<&str, &str> {

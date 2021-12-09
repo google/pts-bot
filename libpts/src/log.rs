@@ -1,7 +1,10 @@
 use crate::compat::split_once;
 use crate::pts::{LogType, Message};
 use crate::ttcn;
+
 use std::iter::Iterator;
+
+use futures_lite::{Stream, StreamExt};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TimerEvent {
@@ -269,8 +272,8 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
 }
 
 pub fn parse<E>(
-    messages: impl Iterator<Item = Result<Message, E>>,
-) -> impl Iterator<Item = Result<Event, E>> {
+    messages: impl Stream<Item = Result<Message, E>>,
+) -> impl Stream<Item = Result<Event, E>> {
     messages.filter_map(|message| match message {
         Ok(Message::Log {
             message,

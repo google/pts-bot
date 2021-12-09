@@ -1,5 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::pin::Pin;
+
+use futures_lite::{Stream, StreamExt};
 
 use termion::{color, style};
 
@@ -95,11 +98,12 @@ fn print_multiline(kind: &EventKind, data: &str) {
     }
 }
 
-pub fn print<E>(mut events: impl Iterator<Item = Result<Event, E>>) -> Result<Option<String>, E> {
+pub async fn print<E>(
+    mut events: impl Stream<Item = Result<Event, E>>,
+) -> Result<Option<String>, E> {
     let mut stack: Vec<String> = Vec::new();
-    events.try_fold(None, |result, event| {
-        let event = event?;
-
+    let mut events = unsafe { Pin::new_unchecked(&mut events) };
+    let events = events.try_fold(None, |result, event| {
         let step = stack.last().map(|last| last as &str).unwrap_or("");
 
         print_header(event.time, step, &event.kind, true);
@@ -149,5 +153,6 @@ pub fn print<E>(mut events: impl Iterator<Item = Result<Event, E>>) -> Result<Op
             }
             _ => result,
         })
-    })
+    });
+    events.await
 }

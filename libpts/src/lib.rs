@@ -15,6 +15,11 @@ use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 
+use std::pin::Pin;
+use std::task::Poll;
+
+use futures_lite::{ready, stream::poll_fn, Future, Stream};
+
 use thiserror::Error;
 
 pub use crate::bd_addr::BdAddr;
@@ -25,13 +30,10 @@ use crate::xml_model::{ets::ETS, picsx::PICS, pixitx::PIXIT, XMLModel};
 pub use crate::log::Event;
 pub use crate::pts::{MMIStyle, Message};
 
-pub struct Interaction<'a> {
-    pub style: MMIStyle,
-    pub pts_addr: BdAddr,
-    pub id: &'a str,
-    pub profile: &'a str,
-    pub test: &'a str,
-    pub description: &'a str,
+pub struct Interaction {
+    pts_addr: BdAddr,
+    style: MMIStyle,
+    description: String,
 }
 
 pub type HCI = HCIPort;
@@ -59,11 +61,28 @@ pub enum InstallError {
 }
 
 #[derive(Debug, Error)]
-pub enum RunError<E> {
-    #[error("IO {0}")]
+pub enum RunError<Err1, Err2> {
+    #[error("IO error ({0})")]
     IO(#[source] io::Error),
-    #[error(transparent)]
-    Interact(#[from] E),
+    #[error("Pipe HCI failed ({0})")]
+    Pipe(#[source] Err1),
+    #[error("Interact failed ({0})")]
+    Interact(#[source] Err2),
+    #[error("HCI interrupted")]
+    HCIInterrupted,
+}
+
+impl Interaction {
+    pub fn explode(&self) -> (BdAddr, MMIStyle, String, &str, &str, &str) {
+        if let Some((raw_id, test, profile, description)) = mmi::parse(self.description.as_str()) {
+            let id = mmi::id_to_mmi(profile, raw_id)
+                .map(|x| x.to_string())
+                .unwrap_or(raw_id.to_string());
+            (self.pts_addr, self.style, id, profile, test, description)
+        } else {
+            todo!();
+        }
+    }
 }
 
 impl PTS {
@@ -117,18 +136,24 @@ impl<'pts> Profile<'pts> {
         })
     }
 
-    pub fn run_test<E: Send + 'static>(
+    pub fn run_test<Fut1, Err1, Fut2, Err2>(
         &self,
         test: &str,
-        addr: BdAddr,
-        mut interact: impl FnMut(Interaction) -> Result<String, E> + Send + 'static,
-        mut pipe_hci: impl FnMut(HCI) -> (),
+        iut_addr: BdAddr,
+        mut pipe_hci: impl FnMut(HCI) -> Fut1,
+        mut interact: impl FnMut(Interaction) -> Fut2 + 'pts,
         audio_output_path: Option<&str>,
-    ) -> impl Iterator<Item = Result<Event, RunError<E>>> + 'pts {
+    ) -> impl Stream<Item = Result<Event, RunError<Err1, Err2>>> + 'pts
+    where
+        Fut1: 'pts + Future<Output = Result<(), Err1>>,
+        Err1: 'pts,
+        Fut2: 'pts + Future<Output = Result<String, Err2>>,
+        Err2: 'pts,
+    {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
-        pipe_hci(port);
+        let mut hci = pipe_hci(port);
 
-        let octet_addr = format!("{:#}", addr);
+        let octet_addr = format!("{:#}", iut_addr);
 
         let pics = self.pics.iter().map(|row| {
             let value = self.pts.ics.get(&row.name).unwrap_or(&row.value);
@@ -150,38 +175,49 @@ impl<'pts> Profile<'pts> {
             pts::Server::spawn(wineport, &self.name, test, parameters, audio_output_path)
                 .into_parts();
 
-        let pts_addr = messages
-            .find_map(|message| match message {
-                Ok(Message::Addr { value }) => Some(value),
-                _ => None,
-            })
-            .unwrap();
+        let mut pts_addr = BdAddr::NULL;
+        let mut answer: Option<Fut2> = None;
 
-        let messages = messages.map(move |message| {
-            if let Ok(Message::ImplicitSend {
-                description: mmi,
-                style,
-            }) = &message
-            {
-                let answer = if let Some((raw_id, test, profile, description)) = mmi::parse(mmi) {
-                    interact(Interaction {
-                        pts_addr,
-                        style: *style,
-                        id: mmi::id_to_mmi(profile, raw_id).unwrap_or(&raw_id.to_string()),
-                        profile,
-                        test,
-                        description,
-                    })
-                    .map_err(RunError::Interact)?
-                } else {
-                    todo!();
-                };
-                send_answer(&*answer);
+        log::parse(poll_fn(move |cx| {
+            match unsafe { Pin::new_unchecked(&mut hci) }.poll(cx) {
+                Poll::Pending => {}
+                Poll::Ready(Ok(_)) => return Poll::Ready(Some(Err(RunError::HCIInterrupted))),
+                Poll::Ready(Err(err)) => {
+                    return Poll::Ready(Some(Err(err).map_err(RunError::Pipe)))
+                }
             }
 
-            message.map_err(RunError::IO)
-        });
+            if let Some(mut fut) = answer.take() {
+                match unsafe { Pin::new_unchecked(&mut fut) }.poll(cx) {
+                    Poll::Pending => {
+                        answer = Some(fut);
+                    }
+                    Poll::Ready(Ok(s)) => {
+                        send_answer(s.as_str());
+                        answer = None;
+                    }
+                    Poll::Ready(Err(err)) => {
+                        return Poll::Ready(Some(Err(err).map_err(RunError::Interact)))
+                    }
+                }
+            }
 
-        log::parse(messages)
+            let message = ready!(unsafe { Pin::new_unchecked(&mut messages) }.poll_next(cx));
+            match &message {
+                Some(Ok(Message::Addr { value })) => pts_addr = *value,
+                Some(Ok(Message::ImplicitSend {
+                    description: mmi,
+                    style,
+                })) => {
+                    answer = Some(interact(Interaction {
+                        pts_addr,
+                        style: *style,
+                        description: mmi.clone(),
+                    }))
+                }
+                _ => {}
+            }
+            Poll::Ready(message.map(|x| x.map_err(RunError::IO)))
+        }))
     }
 }

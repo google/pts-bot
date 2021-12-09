@@ -1,5 +1,9 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::Write;
 use std::process::{Child, Stdio};
+
+use async_io::Async;
+
+use futures_lite::{io::BufReader, AsyncBufReadExt, Stream, StreamExt};
 
 use serde::Deserialize;
 use serde_json;
@@ -108,11 +112,11 @@ impl<'wine> Server<'wine> {
     pub fn into_parts(
         mut self,
     ) -> (
-        impl Iterator<Item = std::io::Result<Message>> + 'wine,
+        impl Stream<Item = std::io::Result<Message>> + 'wine,
         impl FnMut(&str) -> () + 'wine,
     ) {
         let stdout = self.0.stdout.take().unwrap();
-        let stdout = BufReader::new(stdout);
+        let stdout = BufReader::new(Async::new(stdout).unwrap());
 
         (
             stdout.lines().map(|result| {

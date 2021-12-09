@@ -1,12 +1,15 @@
 use std::io;
-use std::os::unix::io::AsRawFd;
 use std::path::Path;
-use std::sync::Arc;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use nix;
 use nix::fcntl::OFlag;
 use nix::pty;
-use nix::unistd;
+
+use async_io::Async;
+
+use futures_lite::{ready, AsyncRead, AsyncWrite};
 
 use crate::wine::Wine;
 
@@ -20,9 +23,8 @@ fn nix_error_into_io_error(error: nix::Error) -> io::Error {
     }
 }
 
-#[derive(Clone)]
 pub struct HCIPort {
-    pty: Arc<pty::PtyMaster>,
+    pty: Async<pty::PtyMaster>,
     waiting_read: bool,
 }
 
@@ -45,7 +47,7 @@ impl<'a> HCIPort {
 
         Ok((
             HCIPort {
-                pty: Arc::new(pty),
+                pty: Async::new(pty)?,
                 waiting_read: true,
             },
             WineHCIPort {
@@ -56,36 +58,51 @@ impl<'a> HCIPort {
     }
 }
 
-impl io::Read for HCIPort {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match unistd::read(self.pty.as_raw_fd(), buf) {
+impl AsyncRead for HCIPort {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        match ready!(Pin::new(&mut self.pty).poll_read(cx, buf)) {
             Ok(read) => {
-                // Read was sucessfull, something is connected
+                // Read was successful, something is connected
                 self.waiting_read = false;
-                Ok(read)
+                Poll::Ready(Ok(read))
             }
-            Err(nix::Error::Sys(nix::errno::Errno::EIO)) => {
+            Err(err) if err.kind() == io::Error::from(nix::errno::Errno::EIO).kind() => {
                 // The pty will not be connected directly,
                 // we want to wait for a connection, but when it disconnect
                 // we want to end the read
-                if self.waiting_read {
+                Poll::Ready(if self.waiting_read {
                     Err(io::Error::new(io::ErrorKind::Interrupted, "Not connected"))
                 } else {
                     Ok(0)
-                }
+                })
             }
-            Err(err) => Err(nix_error_into_io_error(err)),
+            Err(err) => Poll::Ready(Err(err)),
         }
     }
 }
 
-impl io::Write for HCIPort {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        unistd::write(self.pty.as_raw_fd(), buf).map_err(nix_error_into_io_error)
+impl AsyncWrite for HCIPort {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let pty: &mut Async<pty::PtyMaster> = &mut self.pty;
+        Pin::new(pty).poll_write(cx, buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let pty: &mut Async<pty::PtyMaster> = &mut self.pty;
+        Pin::new(pty).poll_flush(cx)
+    }
+
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let pty: &mut Async<pty::PtyMaster> = &mut self.pty;
+        Pin::new(pty).poll_close(cx)
     }
 }
 

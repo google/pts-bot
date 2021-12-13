@@ -270,11 +270,10 @@ fn main() -> Result<()> {
         .tests()
         .filter(|test| opts.test.is_none() || opts.test.as_ref() == Some(test))
         .map(|test| {
-            let eiffel = block_on(Eiffel::spawn(&opts.eiffel, &test))?;
+            let mut eiffel = block_on(Eiffel::spawn(&opts.eiffel, &test))?;
             let addr = eiffel.addr;
-            let eiffel = Arc::new(Mutex::new(eiffel));
 
-            let events = profile.run_test(
+            let events = block_on(profile.run_test(
                 &*test,
                 addr,
                 |mut port| async move {
@@ -284,13 +283,9 @@ fn main() -> Result<()> {
 
                     copy_bidirectional(&mut tcp, &mut port).await
                 },
-                |i| {
-                    let eiffel = eiffel.clone();
-                    // FIXME: is there another way to write this :thinking: ?
-                    async move { eiffel.lock().unwrap().interact(i).await }
-                },
+                move |i| Box::new(eiffel.interact(i)),
                 None,
-            );
+            ));
 
             let verdict = block_on(logger::print(events)).context("Runtime Error")?;
             let verdict = verdict.context("No Verdict ?")?;

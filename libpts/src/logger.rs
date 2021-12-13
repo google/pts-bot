@@ -1,8 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::pin::Pin;
 
-use futures_lite::{Stream, StreamExt};
+use futures_lite::{pin, Stream, StreamExt};
 
 use termion::{color, style};
 
@@ -98,11 +97,9 @@ fn print_multiline(kind: &EventKind, data: &str) {
     }
 }
 
-pub async fn print<E>(
-    mut events: impl Stream<Item = Result<Event, E>>,
-) -> Result<Option<String>, E> {
+pub async fn print<E>(events: impl Stream<Item = Result<Event, E>>) -> Result<Option<String>, E> {
     let mut stack: Vec<String> = Vec::new();
-    let mut events = unsafe { Pin::new_unchecked(&mut events) };
+    pin!(events);
     let events = events.try_fold(None, |result, event| {
         let step = stack.last().map(|last| last as &str).unwrap_or("");
 

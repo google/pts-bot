@@ -14,11 +14,11 @@ mod xml_model;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
-
-use std::pin::Pin;
 use std::task::Poll;
 
-use futures_lite::{ready, stream::poll_fn, Future, Stream};
+use futures_lite::{stream, Future, Stream, StreamExt};
+
+use async_channel;
 
 use thiserror::Error;
 
@@ -68,8 +68,6 @@ pub enum RunError<Err1, Err2> {
     Pipe(#[source] Err1),
     #[error("Interact failed")]
     Interact(#[source] Err2),
-    #[error("HCI interrupted")]
-    HCIInterrupted,
 }
 
 impl Interaction {
@@ -138,11 +136,11 @@ impl<'pts> Profile<'pts> {
         })
     }
 
-    pub fn run_test<Fut1, Err1, Fut2, Err2>(
+    pub async fn run_test<Fut1, Err1, Fut2, Err2>(
         &self,
         test: &str,
         iut_addr: BdAddr,
-        mut pipe_hci: impl FnMut(HCI) -> Fut1,
+        mut pipe_hci: impl FnMut(HCI) -> Fut1 + 'pts,
         mut interact: impl FnMut(Interaction) -> Fut2 + 'pts,
         audio_output_path: Option<&str>,
     ) -> impl Stream<Item = Result<Event, RunError<Err1, Err2>>> + 'pts
@@ -153,7 +151,11 @@ impl<'pts> Profile<'pts> {
         Err2: 'pts,
     {
         let (port, wineport) = HCIPort::bind(&self.pts.wine).expect("HCI port");
-        let mut hci = pipe_hci(port);
+
+        let hci = Box::pin(async move {
+            pipe_hci(port).await.map_err(RunError::Pipe)?;
+            Ok(None)
+        });
 
         let octet_addr = format!("{:#}", iut_addr);
 
@@ -162,6 +164,7 @@ impl<'pts> Profile<'pts> {
             let value = if *value { "TRUE" } else { "FALSE" };
             (&*row.name, "BOOLEAN", value)
         });
+
         let pixit = self.pixit.iter().map(|row| match &*row.name {
             "TSPX_bd_addr_iut" => ("TSPX_bd_addr_iut", "OCTETSTRING", &*octet_addr),
             "TSPX_delete_link_key" => ("TSPX_delete_link_key", "BOOLEAN", "TRUE"),
@@ -173,53 +176,52 @@ impl<'pts> Profile<'pts> {
 
         let parameters = pics.chain(pixit);
 
-        let (mut messages, mut send_answer) =
+        let (messages, mut send_answer) =
             pts::Server::spawn(wineport, &self.name, test, parameters, audio_output_path)
                 .into_parts();
 
-        let mut pts_addr = BdAddr::NULL;
-        let mut answer: Option<Fut2> = None;
+        let mut messages = messages
+            .map(|r| r.map_err(RunError::IO))
+            .or(stream::once(hci).then(|x| x).filter_map(Result::transpose));
 
-        log::parse(poll_fn(move |cx| {
-            match unsafe { Pin::new_unchecked(&mut hci) }.poll(cx) {
-                Poll::Pending => {}
-                Poll::Ready(Ok(_)) => return Poll::Ready(Some(Err(RunError::HCIInterrupted))),
-                Poll::Ready(Err(err)) => {
-                    return Poll::Ready(Some(Err(err).map_err(RunError::Pipe)))
-                }
+        let pts_addr = messages
+            .find_map(|message| match message {
+                Ok(Message::Addr { value }) => Some(value),
+                _ => None,
+            })
+            .await
+            .unwrap();
+
+        let (tx, rx) = async_channel::unbounded();
+
+        let answers = async move {
+            while let Ok(interaction) = rx.recv().await {
+                let answer = interact(interaction).await.map_err(RunError::Interact)?;
+                send_answer(&*answer);
             }
+            Ok(None)
+        };
 
-            if let Some(mut fut) = answer.take() {
-                match unsafe { Pin::new_unchecked(&mut fut) }.poll(cx) {
-                    Poll::Pending => {
-                        answer = Some(fut);
-                    }
-                    Poll::Ready(Ok(s)) => {
-                        send_answer(s.as_str());
-                        answer = None;
-                    }
-                    Poll::Ready(Err(err)) => {
-                        return Poll::Ready(Some(Err(err).map_err(RunError::Interact)))
-                    }
-                }
-            }
-
-            let message = ready!(unsafe { Pin::new_unchecked(&mut messages) }.poll_next(cx));
-            match &message {
-                Some(Ok(Message::Addr { value })) => pts_addr = *value,
-                Some(Ok(Message::ImplicitSend {
-                    description: mmi,
+        let messages = stream::poll_fn(move |cx| match messages.poll_next(cx) {
+            Poll::Ready(Some(Ok(Message::ImplicitSend { description, style }))) => {
+                tx.try_send(Interaction {
+                    pts_addr,
                     style,
-                })) => {
-                    answer = Some(interact(Interaction {
-                        pts_addr,
-                        style: *style,
-                        description: mmi.clone(),
-                    }))
-                }
-                _ => {}
+                    description: description.to_owned(),
+                })
+                .unwrap();
+                Poll::Ready(Some(Ok(Message::ImplicitSend { description, style })))
             }
-            Poll::Ready(message.map(|x| x.map_err(RunError::IO)))
-        }))
+            Poll::Ready(None) => {
+                tx.close();
+                Poll::Ready(None)
+            }
+            x => x,
+        })
+        .or(stream::once(answers)
+            .then(|x| x)
+            .filter_map(Result::transpose));
+
+        log::parse(messages)
     }
 }

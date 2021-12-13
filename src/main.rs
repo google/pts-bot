@@ -8,7 +8,7 @@ use std::thread;
 
 use anyhow::{Context, Error, Result};
 use dirs;
-use libpts::{logger, BdAddr, Interaction, HCI, IUT, PTS};
+use libpts::{logger, BdAddr, Interaction, HCI, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -40,18 +40,6 @@ impl Host {
 
         println!("local address: {}", addr);
         Ok(Self { addr, mmi2grpc })
-    }
-}
-
-impl IUT for Host {
-    type Err = mmi2grpc::Error;
-
-    fn bd_addr(&self) -> BdAddr {
-        self.addr
-    }
-
-    fn interact(&mut self, interaction: Interaction) -> std::result::Result<String, Self::Err> {
-        self.mmi2grpc.interact(interaction)
     }
 }
 
@@ -189,8 +177,14 @@ fn main() -> Result<()> {
     let result = tests
         .into_iter()
         .map(|test| {
-            let mut host = Host::create()?;
-            let events = profile.run_test(&*test, &mut host, connect_to_rootcanal, None);
+            let host = Host::create()?;
+            let events = profile.run_test(
+                &*test,
+                host.addr,
+                move |i| host.mmi2grpc.interact(i),
+                connect_to_rootcanal,
+                None,
+            );
 
             let verdict = logger::print(events).context("Runtime Error")?;
             let verdict = verdict.context("No Verdict ?")?;

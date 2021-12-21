@@ -27,6 +27,7 @@ pub enum TTCNValue {
     Array(Vec<TTCNValue>),
     Empty,
     AnyValue,
+    AnyOrOmit,
 }
 
 fn space(input: &str) -> IResult<&str, &str> {
@@ -123,6 +124,7 @@ fn value(input: &str) -> IResult<&str, TTCNValue> {
             map(charstring, |s| TTCNValue::CharString(String::from(s))),
             special_string,
             map(char('?'), |_| TTCNValue::AnyValue),
+            map(char('*'), |_| TTCNValue::AnyOrOmit),
             map(identifier, |s| TTCNValue::Identifier(String::from(s))),
             |input| Ok((input, TTCNValue::Empty)),
         )),
@@ -189,6 +191,7 @@ impl fmt::Display for TTCNValue {
                 style::Reset
             ),
             TTCNValue::AnyValue => write!(f, "{}?{}", style::Bold, style::Reset),
+            TTCNValue::AnyOrOmit => write!(f, "{}*{}", style::Bold, style::Reset),
             TTCNValue::Record(record) => {
                 if record.len() == 0 {
                     write!(f, "{{}}")
@@ -313,6 +316,11 @@ mod test {
     #[test]
     fn test_anyvalue() {
         assert_eq!(parse("?"), Ok(("", TTCNValue::AnyValue)));
+    }
+
+    #[test]
+    fn test_anyoromit() {
+        assert_eq!(parse("*"), Ok(("", TTCNValue::AnyOrOmit)));
     }
 
     #[test]

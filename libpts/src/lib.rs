@@ -73,11 +73,13 @@ pub enum RunError<Err1, Err2> {
 }
 
 impl Interaction {
-    pub fn explode(&self) -> (BdAddr, MMIStyle, String, &str, &str, &str) {
+    pub fn explode(&self) -> (BdAddr, MMIStyle, &str, &str, &str, &str) {
         if let Some((raw_id, test, profile, description)) = mmi::parse(self.description.as_str()) {
-            let id = mmi::id_to_mmi(profile, raw_id)
-                .map(|x| x.to_string())
-                .unwrap_or(raw_id.to_string());
+            let id = raw_id
+                .parse()
+                .ok()
+                .and_then(|raw_id| mmi::id_to_mmi(profile, raw_id))
+                .unwrap_or(raw_id);
             (self.pts_addr, self.style, id, profile, test, description)
         } else {
             todo!();

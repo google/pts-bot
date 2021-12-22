@@ -62,11 +62,11 @@ pub enum InstallError {
 
 #[derive(Debug, Error)]
 pub enum RunError<Err1, Err2> {
-    #[error("IO error ({0})")]
+    #[error("IO error")]
     IO(#[source] io::Error),
-    #[error("Pipe HCI failed ({0})")]
+    #[error("Pipe HCI failed")]
     Pipe(#[source] Err1),
-    #[error("Interact failed ({0})")]
+    #[error("Interact failed")]
     Interact(#[source] Err2),
     #[error("HCI interrupted")]
     HCIInterrupted,

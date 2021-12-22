@@ -34,16 +34,23 @@ def generate_method(imports, file, service, method):
     output_type = import_type(imports, method.output_type)
 
     if input_mode == 'stream':
-        raise Error("TODO: stream as input type")
-
-    return (
-        f'def {method.name}(self, wait_for_ready=None, **kwargs):\n'
-        f'    return self.channel.{input_mode}_{output_mode}(\n'
-        f"        '/{file.package}.{service.name}/{method.name}',\n"
-        f'        request_serializer={input_type}.SerializeToString,\n'
-        f'        response_deserializer={output_type}.FromString\n'
-        f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready)'
-    ).split('\n')
+        return (
+            f'def {method.name}(self, iterator, **kwargs):\n'
+            f'    return self.channel.{input_mode}_{output_mode}(\n'
+            f"        '/{file.package}.{service.name}/{method.name}',\n"
+            f'        request_serializer={input_type}.SerializeToString,\n'
+            f'        response_deserializer={output_type}.FromString\n'
+            f'    )(iterator, **kwargs)'
+        ).split('\n')
+    else:
+        return (
+            f'def {method.name}(self, wait_for_ready=None, **kwargs):\n'
+            f'    return self.channel.{input_mode}_{output_mode}(\n'
+            f"        '/{file.package}.{service.name}/{method.name}',\n"
+            f'        request_serializer={input_type}.SerializeToString,\n'
+            f'        response_deserializer={output_type}.FromString\n'
+            f'    )({input_type}(**kwargs), wait_for_ready=wait_for_ready)'
+        ).split('\n')
 
 
 def generate_service(imports, file, service):

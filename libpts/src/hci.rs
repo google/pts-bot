@@ -64,23 +64,24 @@ impl AsyncRead for HCIPort {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        match ready!(Pin::new(&mut self.pty).poll_read(cx, buf)) {
-            Ok(read) => {
-                // Read was successful, something is connected
-                self.waiting_read = false;
-                Poll::Ready(Ok(read))
+        loop {
+            match ready!(Pin::new(&mut self.pty).poll_read(cx, buf)) {
+                Ok(read) => {
+                    // Read was successful, something is connected
+                    self.waiting_read = false;
+                    return Poll::Ready(Ok(read));
+                }
+                Err(err) if err.kind() == io::Error::from(nix::errno::Errno::EIO).kind() => {
+                    // The pty will not be connected directly,
+                    // we want to wait for a connection, but when it disconnect
+                    // we want to end the read.
+                    if !self.waiting_read {
+                        return Poll::Ready(Ok(0));
+                    }
+                }
+                Err(err) => return Poll::Ready(Err(err)),
             }
-            Err(err) if err.kind() == io::Error::from(nix::errno::Errno::EIO).kind() => {
-                // The pty will not be connected directly,
-                // we want to wait for a connection, but when it disconnect
-                // we want to end the read
-                Poll::Ready(if self.waiting_read {
-                    Err(io::Error::new(io::ErrorKind::Interrupted, "Not connected"))
-                } else {
-                    Ok(0)
-                })
-            }
-            Err(err) => Poll::Ready(Err(err)),
+            ready!(Pin::new(&mut self.pty).poll_readable(cx))?;
         }
     }
 }

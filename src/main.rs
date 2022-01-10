@@ -1,65 +1,44 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
-use std::io;
-use std::net::{Ipv4Addr, Shutdown, TcpStream};
+use std::io::BufReader;
+use std::net::{Ipv4Addr, TcpStream};
 use std::path::PathBuf;
-use std::thread;
+use std::sync::Arc;
 
 use anyhow::{Context, Error, Result};
 use dirs;
-use libpts::{logger, BdAddr, Interaction, HCI, PTS};
+use libpts::{logger, BdAddr, Interaction, RunError, HCI, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
 
-mod mmi2grpc;
-use mmi2grpc::Mmi2grpc;
+use futures_lite::{future, io, stream, StreamExt};
+
+use async_io::{block_on, Async};
+
+use blocking::unblock;
+
+mod python;
+use python::{wait_signal, PythonIUT};
 
 use termion::{color, style};
 
-struct Host {
-    addr: BdAddr,
-    mmi2grpc: Mmi2grpc,
-}
-
-impl Host {
-    fn create() -> Result<Self> {
-        let mmi2grpc = Mmi2grpc::new();
-
-        println!("Resetting Host ...");
-        mmi2grpc.reset()?;
-
-        println!("Reading local address ...");
-        let addr = BdAddr::new(
-            mmi2grpc
-                .read_local_address()?
-                .try_into()
-                .map_err(|_| Error::msg("Invalid address size"))?,
-        );
-
-        println!("local address: {}", addr);
-        Ok(Self { addr, mmi2grpc })
-    }
-}
-
-fn connect_to_rootcanal(port: HCI) {
+async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
     let opts = Opts::from_args();
     let rootcanal_port = opts.rootcanal;
-    let mut hcitx = port.clone();
-    let mut hcirx = port;
-    let tcp = TcpStream::connect((Ipv4Addr::LOCALHOST, rootcanal_port)).expect("Connect");
-    let mut tcptx = tcp.try_clone().expect("Clone");
-    let mut tcprx = tcp;
-    thread::spawn(move || {
-        io::copy(&mut hcitx, &mut tcprx).expect("HCI TX");
-        println!("HCI TX ended");
-        tcprx.shutdown(Shutdown::Both).expect("HCI shutdown");
-    });
-    thread::spawn(move || {
-        io::copy(&mut tcptx, &mut hcirx).expect("HCI RX");
-        println!("HCI RX ended");
-    });
+    let tcp = Async::<TcpStream>::connect((Ipv4Addr::LOCALHOST, rootcanal_port))
+        .await
+        .expect("Connect");
+
+    let (hcirx, hcitx) = io::split(port);
+    let (tcprx, tcptx) = io::split(tcp);
+
+    future::or(io::copy(hcirx, tcptx), io::copy(tcprx, hcitx)).await?;
+
+    println!("HCI ended");
+
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,7 +126,7 @@ fn main() -> Result<()> {
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;
-        let config: Config = serde_json::from_reader(io::BufReader::new(config_file))
+        let config: Config = serde_json::from_reader(BufReader::new(config_file))
             .context("Failed to parse config")?;
 
         for (ics, value) in config.ics {
@@ -163,9 +142,10 @@ fn main() -> Result<()> {
         .map(|(profile, _)| profile)
         .unwrap_or(&*opts.test_prefix);
 
-    let profile = pts
-        .profile(profile_name)
-        .with_context(|| format!("Profile '{}' not found", profile_name))?;
+    let profile = Arc::new(
+        pts.profile(profile_name)
+            .with_context(|| format!("Profile '{}' not found", profile_name))?,
+    );
 
     let tests = profile
         .tests()
@@ -174,25 +154,52 @@ fn main() -> Result<()> {
 
     println!("Tests: {:?}", tests);
 
-    let result = tests
-        .into_iter()
-        .map(|test| {
-            let host = Host::create()?;
-            let events = profile.run_test(
-                &*test,
-                host.addr,
-                move |i| host.mmi2grpc.interact(i),
-                connect_to_rootcanal,
-                None,
-            );
+    block_on(async move {
+        let result: Result<Vec<_>> = stream::iter(tests.into_iter())
+            .then(|test| {
+                let profile = profile.clone();
+                async move {
+                    let iut = Arc::new(PythonIUT::new("mmi2grpc")?);
 
-            let verdict = logger::print(events).context("Runtime Error")?;
-            let verdict = verdict.context("No Verdict ?")?;
-            println!("Verdict: {}", verdict);
-            Ok((test, verdict))
-        })
-        .collect::<Result<Vec<_>>>()?;
+                    println!("Resetting IUT ...");
+                    iut.reset()?;
 
-    report_results(result);
-    Ok(())
+                    println!("Reading local address ...");
+                    let addr = BdAddr::new(
+                        iut.read_local_address()?
+                            .try_into()
+                            .map_err(|_| Error::msg("Invalid address size"))?,
+                    );
+
+                    println!("local address: {}", addr);
+
+                    let events = profile
+                        .run_test(
+                            &*test,
+                            addr,
+                            connect_to_rootcanal,
+                            move |i| {
+                                let iut = iut.clone();
+                                unblock(move || iut.interact(i))
+                            },
+                            Some("/tmp/audiodata"),
+                        )
+                        .await;
+                    let signal = unblock(wait_signal);
+                    let signal = async move { signal.await.map_err(RunError::Interact) };
+
+                    let verdict = future::or(logger::print(events), signal)
+                        .await
+                        .context("Runtime Error")?;
+                    let verdict = verdict.context("No Verdict ?")?;
+                    println!("Verdict: {}", verdict);
+                    Ok((test, verdict))
+                }
+            })
+            .try_collect()
+            .await;
+
+        report_results(result?);
+        Ok(())
+    })
 }

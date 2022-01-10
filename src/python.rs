@@ -1,13 +1,11 @@
 use std::fmt;
 
 use pyo3::{
-    prelude::{PyErr, PyResult, Python},
     types::{PyBytes, PyModule, PyString},
+    Py, PyErr, PyResult, Python,
 };
 
 use super::Interaction;
-
-pub struct Mmi2grpc;
 
 #[derive(Debug)]
 pub struct Error(PyErr);
@@ -31,20 +29,17 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl Mmi2grpc {
-    pub fn new() -> Self {
-        Python::with_gil(|py| -> Self {
-            py.run("import sys; sys.path.append('mmi2grpc/')", None, None)
-                .expect("Should not fail");
-            Self
-        })
+pub struct PythonIUT(Py<PyModule>);
+
+impl PythonIUT {
+    pub fn new(name: &str) -> Result<Self, Error> {
+        Python::with_gil(|py| -> PyResult<Self> { Ok(Self(PyModule::import(py, name)?.into())) })
+            .map_err(Error)
     }
 
     pub fn reset(&self) -> Result<(), Error> {
         Python::with_gil(|py| -> PyResult<()> {
-            PyModule::import(py, "mmi2grpc")?
-                .getattr("reset")?
-                .call((), None)?;
+            self.0.as_ref(py).getattr("reset")?.call0()?;
             Ok(())
         })
         .map_err(Error)
@@ -52,9 +47,11 @@ impl Mmi2grpc {
 
     pub fn read_local_address(&self) -> Result<Vec<u8>, Error> {
         Python::with_gil(|py| -> PyResult<Vec<u8>> {
-            Ok(PyModule::import(py, "mmi2grpc")?
+            Ok(self
+                .0
+                .as_ref(py)
                 .getattr("read_local_address")?
-                .call((), None)?
+                .call0()?
                 .cast_as::<PyBytes>()?
                 .as_bytes()
                 .to_vec())
@@ -62,24 +59,29 @@ impl Mmi2grpc {
         .map_err(Error)
     }
 
-    pub fn interact(&self, interaction: Interaction<'_>) -> Result<String, Error> {
-        Python::with_gil(|py| -> PyResult<()> {
-            let interaction_id = PyString::new(py, interaction.id);
-            let profile = PyString::new(py, interaction.profile);
-            let pts_addr = PyBytes::new(py, &*interaction.pts_addr);
-            PyModule::import(py, "mmi2grpc")?.getattr("run")?.call(
-                (
-                    profile,
-                    interaction_id,
-                    interaction.test.to_string(),
-                    pts_addr,
-                ),
-                None,
-            )?;
-            Ok(())
+    pub fn interact(&self, interaction: Interaction) -> Result<String, Error> {
+        Python::with_gil(|py| -> PyResult<String> {
+            let (addr, _style, id, profile, test, description) = interaction.explode();
+            Ok(self
+                .0
+                .as_ref(py)
+                .getattr("run")?
+                .call((profile, id, test, description, &*addr as &[u8]), None)?
+                .cast_as::<PyString>()?
+                .to_string_lossy()
+                .into_owned())
         })
-        .map_err(Error)?;
-
-        Ok(String::from("Ok"))
+        .map_err(Error)
     }
+}
+
+pub fn wait_signal<T>() -> Result<T, Error> {
+    Python::with_gil(|py| -> PyResult<T> {
+        let signal_pause = PyModule::import(py, "signal")?.getattr("pause")?;
+
+        loop {
+            signal_pause.call0()?;
+        }
+    })
+    .map_err(Error)
 }

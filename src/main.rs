@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::BufReader;
@@ -44,7 +44,8 @@ async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
 #[derive(Debug, Deserialize)]
 struct Config {
     ics: HashMap<String, bool>,
-    ixit: HashMap<String, String>,
+    ixit: HashMap<String, HashMap<String, String>>,
+    skip: Option<Vec<String>>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -57,12 +58,24 @@ struct Opts {
     #[structopt(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
 
-    /// All tests under this prefix will be run
+    /// All tests under this prefix will be run.
+    /// The prefix must include the profile.
     test_prefix: String,
 
-    /// rootcanal hci port
+    /// Rootcanal HCI port
     #[structopt(short, long, default_value = "6402")]
     rootcanal: u16,
+
+    /// Selects the Python module implementing PTS interactions
+    #[structopt(short, long, default_value = "mmi2grpc")]
+    iut: String,
+
+    /// List selected tests and exit
+    #[structopt(short, long)]
+    list: bool,
+
+    /// IUT parameters
+    args: Vec<String>
 }
 
 fn report_results(results: Vec<(String, String)>) {
@@ -123,6 +136,13 @@ fn main() -> Result<()> {
     cache.push("pts");
 
     let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
+    let mut skip = HashSet::new();
+
+    let profile_name = split_once(&opts.test_prefix, "/")
+        .map(|(profile, _)| profile)
+        .unwrap_or(&*opts.test_prefix);
+    let iut_name: &str = &*opts.iut;
+    let iut_args = Arc::new(opts.args.clone());
 
     if let Some(ref config_path) = opts.config {
         let config_file = File::open(config_path).context("Failed to open config file")?;
@@ -131,16 +151,26 @@ fn main() -> Result<()> {
 
         for (ics, value) in config.ics {
             pts.set_ics(&*ics, value);
+            pts.set_ics(&ics.to_uppercase(), value);
         }
 
-        for (ixit, value) in config.ixit {
+        let pixitx = config.ixit.get("default").context("default IXIT missing")?;
+        for (ixit, value) in pixitx {
             pts.set_ixit(&*ixit, &*value);
         }
-    }
 
-    let profile_name = split_once(&opts.test_prefix, "/")
-        .map(|(profile, _)| profile)
-        .unwrap_or(&*opts.test_prefix);
+        let pixitx = config
+            .ixit
+            .get(profile_name)
+            .context("IXIT missing for selected profile")?;
+        for (ixit, value) in pixitx {
+            pts.set_ixit(&*ixit, &*value);
+        }
+
+        for test in config.skip.unwrap_or(vec![]).into_iter() {
+            skip.insert(test);
+        }
+    }
 
     let profile = Arc::new(
         pts.profile(profile_name)
@@ -150,29 +180,34 @@ fn main() -> Result<()> {
     let tests = profile
         .tests()
         .filter(|test| test.starts_with(&opts.test_prefix))
+        .filter(|test| !skip.contains(test))
         .collect::<Vec<_>>();
 
     println!("Tests: {:?}", tests);
+    if opts.list {
+        return Ok(());
+    }
 
     block_on(async move {
         let result: Result<Vec<_>> = stream::iter(tests.into_iter())
             .then(|test| {
                 let profile = profile.clone();
+                let iut_args = iut_args.clone();
+
                 async move {
-                    let iut = Arc::new(PythonIUT::new("mmi2grpc")?);
+                    let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args)?);
 
                     println!("Resetting IUT ...");
-                    iut.reset()?;
+                    iut.enter()?;
 
                     println!("Reading local address ...");
                     let addr = BdAddr::new(
-                        iut.read_local_address()?
+                        iut.address()?
                             .try_into()
                             .map_err(|_| Error::msg("Invalid address size"))?,
                     );
 
-                    println!("local address: {}", addr);
-
+                    println!("Local address: {}", addr);
                     let events = profile
                         .run_test(
                             &*test,

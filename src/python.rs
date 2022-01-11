@@ -1,8 +1,8 @@
 use std::fmt;
 
 use pyo3::{
-    types::{PyBytes, PyModule, PyString},
-    Py, PyErr, PyResult, Python,
+    types::{IntoPyDict, PyBytes, PyModule, PyString},
+    PyObject, PyErr, PyResult, Python,
 };
 
 use super::Interaction;
@@ -29,29 +29,74 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-pub struct PythonIUT(Py<PyModule>);
+pub struct PythonIUT(PyObject);
 
+/// Bind to an IUT python object with the following template:
+///
+/// class IUT:
+///    def __init__(self, args: List[str]):
+///        """Initialize the instance manager."""
+///        pass
+///
+///    def __enter__(self):
+///        """Start the instance subprocess."""
+///        pass
+///
+///    def __exit__(self):
+///        """Kill the instance subprocess."""
+///        pass
+///
+///    @property
+///    def address(self) -> bytes:
+///        pass
+///
+///    def interact(self,
+///                 pts_address: bytes,
+///                 profile: str,
+///                 test: str,
+///                 interaction: str,
+///                 description: str,
+///                 style: str,
+///                 **kwargs) -> str:
+///        """Send an interaction to the instance subprocess and wait for
+///           the result."""
+///        pass
+///
 impl PythonIUT {
-    pub fn new(name: &str) -> Result<Self, Error> {
-        Python::with_gil(|py| -> PyResult<Self> { Ok(Self(PyModule::import(py, name)?.into())) })
-            .map_err(Error)
+
+    pub fn new(name: &str, args: &Vec<String>) -> Result<Self, Error> {
+        Python::with_gil(|py| -> PyResult<Self> {
+            PyModule::import(py, name)?
+                .getattr("IUT")?
+                .call1((args.clone(),))
+                .map(|obj| Self(obj.into()))
+        })
+        .map_err(Error)
     }
 
-    pub fn reset(&self) -> Result<(), Error> {
+    pub fn enter(&self) -> Result<(), Error> {
         Python::with_gil(|py| -> PyResult<()> {
-            self.0.as_ref(py).getattr("reset")?.call0()?;
+            let obj = self.0.as_ref(py);
+            obj.call_method0("__enter__")?;
             Ok(())
         })
         .map_err(Error)
     }
 
-    pub fn read_local_address(&self) -> Result<Vec<u8>, Error> {
+    pub fn exit(&self) -> Result<(), Error> {
+        Python::with_gil(|py| -> PyResult<()> {
+            let obj = self.0.as_ref(py);
+            obj.call_method0("__exit__")?;
+            Ok(())
+        })
+        .map_err(Error)
+    }
+
+    pub fn address(&self) -> Result<Vec<u8>, Error> {
         Python::with_gil(|py| -> PyResult<Vec<u8>> {
-            Ok(self
-                .0
-                .as_ref(py)
-                .getattr("read_local_address")?
-                .call0()?
+            let obj = self.0.as_ref(py);
+            Ok(obj
+                .getattr("address")?
                 .cast_as::<PyBytes>()?
                 .as_bytes()
                 .to_vec())
@@ -61,17 +106,31 @@ impl PythonIUT {
 
     pub fn interact(&self, interaction: Interaction) -> Result<String, Error> {
         Python::with_gil(|py| -> PyResult<String> {
-            let (addr, _style, id, profile, test, description) = interaction.explode();
-            Ok(self
-                .0
-                .as_ref(py)
-                .getattr("run")?
-                .call((profile, id, test, description, &*addr as &[u8]), None)?
+            let (addr, style, id, profile, test, description) = interaction.explode();
+            let style = format!("{:?}", style);
+            let obj = self.0.as_ref(py);
+            let args = ();
+            let kwargs = [
+                ("profile", profile),
+                ("test", test),
+                ("interaction", id),
+                ("description", description),
+                ("style", &style),
+            ].into_py_dict(py);
+            kwargs.set_item("pts_address", PyBytes::new(py, &*addr))?;
+            Ok(obj
+                .call_method("interact", args, Some(kwargs))?
                 .cast_as::<PyString>()?
                 .to_string_lossy()
                 .into_owned())
         })
         .map_err(Error)
+    }
+}
+
+impl Drop for PythonIUT {
+    fn drop(&mut self) {
+        let _ = self.exit();
     }
 }
 

@@ -23,8 +23,8 @@ def run(profile: str, interaction_id: str, test: str, description: str, pts_addr
 
 
 def reset():
-    global a2dp
-    a2dp = None
+    global _a2dp
+    _a2dp = None
     with grpc.insecure_channel(f'localhost:{GRPC_PORT}') as channel:
         Host(channel).Reset(wait_for_ready=True)
 

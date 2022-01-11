@@ -23,7 +23,7 @@ def assert_description(f):
                 docstring.strip(), description.strip(),
                 f'description does not match with function docstring of {f.__name__}')
 
-        f(*args, **kwargs)
+        return f(*args, **kwargs)
     return wrapper
 
 

@@ -1,0 +1,2 @@
+[env]
+PYTHONPATH = { value = "mmi2grpc", force = true, relative = true }

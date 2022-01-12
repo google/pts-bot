@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error, Result};
 use dirs;
-use libpts::{logger, BdAddr, Interaction, RunError, HCI, PTS};
+use libpts::{logger, BdAddr, Interaction, HCI, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -17,12 +17,14 @@ use futures_lite::{future, io, stream, StreamExt};
 
 use async_io::{block_on, Async};
 
+use async_ctrlc::CtrlC;
+
 use blocking::unblock;
 
 mod python;
-use python::{wait_signal, PythonIUT};
+use python::PythonIUT;
 
-use termion::{color, style};
+mod test;
 
 async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
     let opts = Opts::from_args();
@@ -75,40 +77,7 @@ struct Opts {
     list: bool,
 
     /// IUT parameters
-    args: Vec<String>
-}
-
-fn report_results(results: Vec<(String, String)>) {
-    println!();
-    for execution in results.iter() {
-        let result = match &*execution.1 {
-            "PASS" => format!("{}✔{}", color::Fg(color::Green), style::Reset),
-            "FAIL" => format!("{}✘{}", color::Fg(color::Red), style::Reset),
-            "INCONC" => format!("{}?{}", color::Fg(color::Yellow), style::Reset),
-            _ => format!("{}?{}", color::Fg(color::LightWhite), style::Reset),
-        };
-        println!(
-            "\t{}{}{}{}: {}",
-            style::Bold,
-            color::Fg(color::LightWhite),
-            execution.0,
-            style::Reset,
-            result
-        );
-    }
-    let total = results.len();
-    let success = results.iter().filter(|e| e.1 == "PASS").count();
-    let failed = results.iter().filter(|e| e.1 == "FAIL").count();
-    let inconc = results.iter().filter(|e| e.1 == "INCONC").count();
-    println!(
-        "\n{}Total{}: {}, {} Success, {} Failed, {} Inconc",
-        style::Bold,
-        style::Reset,
-        total,
-        success,
-        failed,
-        inconc
-    );
+    args: Vec<String>,
 }
 
 // FIXME: Use str.split_once when gLinux rustc version >= 1.52.0
@@ -188,8 +157,16 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    enum Event<T> {
+        Item(T),
+        CtrlC,
+    }
+
+    let ctrlc = CtrlC::new().context("Failed to create Ctrl+C handler")?;
+    let ctrlc = stream::once(ctrlc).then(|x| x).map(|_| Ok(Event::CtrlC));
+
     block_on(async move {
-        let result: Result<Vec<_>> = stream::iter(tests.into_iter())
+        let results: Vec<_> = stream::iter(tests.clone().into_iter())
             .then(|test| {
                 let profile = profile.clone();
                 let iut_args = iut_args.clone();
@@ -197,15 +174,21 @@ fn main() -> Result<()> {
                 async move {
                     let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args)?);
 
-                    println!("Resetting IUT ...");
-                    iut.enter()?;
+                    let addr = {
+                        let iut = iut.clone();
+                        unblock(move || -> Result<BdAddr> {
+                            println!("Resetting IUT ...");
+                            iut.enter()?;
 
-                    println!("Reading local address ...");
-                    let addr = BdAddr::new(
-                        iut.address()?
-                            .try_into()
-                            .map_err(|_| Error::msg("Invalid address size"))?,
-                    );
+                            println!("Reading local address ...");
+                            Ok(BdAddr::new(
+                                iut.address()?
+                                    .try_into()
+                                    .map_err(|_| Error::msg("Invalid address size"))?,
+                            ))
+                        })
+                        .await?
+                    };
 
                     println!("Local address: {}", addr);
                     let events = profile
@@ -220,21 +203,32 @@ fn main() -> Result<()> {
                             Some("/tmp/audiodata"),
                         )
                         .await;
-                    let signal = unblock(wait_signal);
-                    let signal = async move { signal.await.map_err(RunError::Interact) };
 
-                    let verdict = future::or(logger::print(events), signal)
+                    let result: Result<test::TestResult> = logger::print(events)
                         .await
-                        .context("Runtime Error")?;
-                    let verdict = verdict.context("No Verdict ?")?;
-                    println!("Verdict: {}", verdict);
-                    Ok((test, verdict))
+                        .context("Runtime Error")
+                        .try_into();
+
+                    result.map(Event::Item)
                 }
             })
+            .or(ctrlc)
+            .take_while(|v| !matches!(v, Ok(Event::CtrlC)))
+            .chain(stream::repeat_with(|| {
+                // Provide a None result to all the test that
+                // have not been executed (because of a Ctrl-C)
+                Ok(Event::Item(test::TestResult::None))
+            }))
+            .zip(stream::iter(tests.into_iter()))
+            .map(|(result, name)| match result {
+                Ok(Event::Item(result)) => Ok(test::TestExecution { name, result }),
+                Ok(Event::CtrlC) => unreachable!(),
+                Err(e) => Err(e),
+            })
             .try_collect()
-            .await;
+            .await?;
 
-        report_results(result?);
+        test::report(results);
         Ok(())
     })
 }

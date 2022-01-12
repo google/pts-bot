@@ -2,7 +2,7 @@ use std::fmt;
 
 use pyo3::{
     types::{IntoPyDict, PyBytes, PyModule, PyString},
-    PyObject, PyErr, PyResult, Python,
+    PyErr, PyObject, PyResult, Python,
 };
 
 use super::Interaction;
@@ -63,7 +63,6 @@ pub struct PythonIUT(PyObject);
 ///        pass
 ///
 impl PythonIUT {
-
     pub fn new(name: &str, args: &Vec<String>) -> Result<Self, Error> {
         Python::with_gil(|py| -> PyResult<Self> {
             PyModule::import(py, name)?
@@ -116,7 +115,8 @@ impl PythonIUT {
                 ("interaction", id),
                 ("description", description),
                 ("style", &style),
-            ].into_py_dict(py);
+            ]
+            .into_py_dict(py);
             kwargs.set_item("pts_address", PyBytes::new(py, &*addr))?;
             Ok(obj
                 .call_method("interact", args, Some(kwargs))?
@@ -132,15 +132,4 @@ impl Drop for PythonIUT {
     fn drop(&mut self) {
         let _ = self.exit();
     }
-}
-
-pub fn wait_signal<T>() -> Result<T, Error> {
-    Python::with_gil(|py| -> PyResult<T> {
-        let signal_pause = PyModule::import(py, "signal")?.getattr("pause")?;
-
-        loop {
-            signal_pause.call0()?;
-        }
-    })
-    .map_err(Error)
 }

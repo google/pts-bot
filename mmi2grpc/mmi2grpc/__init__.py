@@ -14,10 +14,12 @@ GRPC_PORT = 8999
 
 
 class IUT:
-    def __init__(self, args: List[str], port: int = GRPC_PORT):
+    def __init__(self, test: str, args: List[str],
+                 port: int = GRPC_PORT, **kwargs):
         self.a2dp_ = None
         self.address_ = None
         self.port = port
+        self.test = test
 
     def __enter__(self):
         with grpc.insecure_channel(f'localhost:{self.port}') as channel:

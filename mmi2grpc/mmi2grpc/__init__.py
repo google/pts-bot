@@ -1,4 +1,6 @@
-from typing import Optional
+# Copyright 2022 Google LLC
+
+from typing import List
 import grpc
 import time
 import sys
@@ -10,30 +12,40 @@ from blueberry.host_grpc import Host
 
 GRPC_PORT = 8999
 
-_a2dp: Optional[A2DPProxy] = None
 
+class IUT:
+    def __init__(self, args: List[str], port: int = GRPC_PORT):
+        self.a2dp_ = None
+        self.address_ = None
+        self.port = port
 
-def run(profile: str, interaction_id: str, test: str, description: str, pts_addr: bytes):
-    global _a2dp
-    print(f'{profile} mmi: {interaction_id}', file=sys.stderr)
-    if profile in ('A2DP', 'AVDTP'):
-        if not _a2dp:
-            _a2dp = A2DPProxy(grpc.insecure_channel(f'localhost:{GRPC_PORT}'))
-        return _a2dp.interact(interaction_id, test, description, pts_addr)
+    def __enter__(self):
+        with grpc.insecure_channel(f'localhost:{self.port}') as channel:
+            Host(channel).Reset(wait_for_ready=True)
 
+    def __exit__(self):
+        self.a2dp_ = None
 
-def reset():
-    global _a2dp
-    _a2dp = None
-    with grpc.insecure_channel(f'localhost:{GRPC_PORT}') as channel:
-        Host(channel).Reset(wait_for_ready=True)
+    @property
+    def address(self) -> bytes:
+        with grpc.insecure_channel(f'localhost:{self.port}') as channel:
+            try:
+                return Host(channel).ReadLocalAddress(wait_for_ready=True).address
+            except grpc.RpcError:
+                print('Retry')
+                time.sleep(5)
+                return Host(channel).ReadLocalAddress(wait_for_ready=True).address
 
-
-def read_local_address() -> bytes:
-    with grpc.insecure_channel(f'localhost:{GRPC_PORT}') as channel:
-        try:
-            return Host(channel).ReadLocalAddress(wait_for_ready=True).address
-        except grpc.RpcError:
-            print('Retry')
-            time.sleep(5)
-            return Host(channel).ReadLocalAddress(wait_for_ready=True).address
+    def interact(self,
+                 pts_address: bytes,
+                 profile: str,
+                 test: str,
+                 interaction: str,
+                 description: str,
+                 style: str,
+                 **kwargs) -> str:
+        print(f'{profile} mmi: {interaction}', file=sys.stderr)
+        if profile in ('A2DP', 'AVDTP'):
+            if not self.a2dp_:
+                self.a2dp_ = A2DPProxy(grpc.insecure_channel(f'localhost:{self.port}'))
+            return self.a2dp_.interact(interaction, test, description, pts_address)

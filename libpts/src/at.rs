@@ -34,7 +34,7 @@ fn string(input: &str) -> IResult<&str, &str> {
 }
 
 fn sequence(input: &str) -> IResult<&str, &str> {
-    recognize(separated_list1(comma, value))(input)
+    recognize(separated_list1(comma, opt(value)))(input)
 }
 
 fn value(input: &str) -> IResult<&str, &str> {
@@ -50,7 +50,7 @@ fn value(input: &str) -> IResult<&str, &str> {
 const COMMANDS: &'static [&'static str] = &[
     "+CRING:", "+CREG:", "+CLIP:", "+COLP:", "+CCWA:", "+CUSB:", "+CCCM:", "+CSSI:", "+CSSU:",
     "+CBC:", "+CSQ:", "+CIEV:", "+CIND:", "+CCWV:", "+CTZV:", "+CGREG:", "+CMTI:", "+CMT:",
-    "+CDSI:", "+CBM:",
+    "+CDSI:", "+CBM:", "+BINP:", "+CNUM:", "+COPS:",
 ];
 
 /// Parse a subset of AT command formats.
@@ -90,6 +90,16 @@ mod test {
     }
 
     #[test]
+    fn test_at_cnum() {
+        let input = r#"+CNUM:,
+                           "1234567",
+                           129,
+                           ,
+                           4"#;
+        assert_eq!(parse(input), Ok(("", input)));
+    }
+
+    #[test]
     fn test_at_string() {
         let input = r#"+CBM:"service""#;
         assert_eq!(parse(input), Ok(("", input)));
@@ -109,7 +119,7 @@ mod test {
 
     #[test]
     fn test_at_sequence() {
-        let input = r#"+CBM:1,2,3"#;
+        let input = r#"+CBM:,1,2,,3"#;
         assert_eq!(parse(input), Ok(("", input)));
     }
 

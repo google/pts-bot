@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
+use std::future::Future;
 use std::io::BufReader;
 use std::net::{Ipv4Addr, TcpStream};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::task::Poll;
 
 use anyhow::{Context, Error, Result};
 use dirs;
@@ -13,7 +15,7 @@ use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
 
-use futures_lite::{future, io, stream, StreamExt};
+use futures_lite::{future, io, pin, stream, FutureExt, Stream, StreamExt};
 
 use async_io::{block_on, Async};
 
@@ -41,6 +43,16 @@ async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
     println!("HCI ended");
 
     Ok(())
+}
+
+fn abortable<T>(
+    mut stream: impl Stream<Item = T> + Unpin,
+    mut signal: impl Future<Output = ()> + Unpin,
+) -> impl Stream<Item = T> + Unpin {
+    stream::poll_fn(move |cx| match stream.poll_next(cx) {
+        Poll::Pending => signal.poll(cx).map(|_| None),
+        val => val,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,74 +169,62 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    enum Event<T> {
-        Item(T),
-        CtrlC,
-    }
-
     let ctrlc = CtrlC::new().context("Failed to create Ctrl+C handler")?;
-    let ctrlc = stream::once(ctrlc).then(|x| x).map(|_| Ok(Event::CtrlC));
 
     block_on(async move {
-        let results: Vec<_> = stream::iter(tests.clone().into_iter())
-            .then(|test| {
-                let profile = profile.clone();
-                let iut_args = iut_args.clone();
+        let stream = stream::iter(tests.clone().into_iter()).then(|test| {
+            let profile = profile.clone();
+            let iut_args = iut_args.clone();
 
-                async move {
-                    let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args, &*test)?);
+            async move {
+                let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args, &*test)?);
 
-                    let addr = {
-                        let iut = iut.clone();
-                        unblock(move || -> Result<BdAddr> {
-                            println!("Resetting IUT ...");
-                            iut.enter()?;
+                let addr = {
+                    let iut = iut.clone();
+                    unblock(move || -> Result<BdAddr> {
+                        println!("Resetting IUT ...");
+                        iut.enter()?;
 
-                            println!("Reading local address ...");
-                            Ok(BdAddr::new(
-                                iut.address()?
-                                    .try_into()
-                                    .map_err(|_| Error::msg("Invalid address size"))?,
-                            ))
-                        })
-                        .await?
-                    };
+                        println!("Reading local address ...");
+                        Ok(BdAddr::new(
+                            iut.address()?
+                                .try_into()
+                                .map_err(|_| Error::msg("Invalid address size"))?,
+                        ))
+                    })
+                    .await?
+                };
 
-                    println!("Local address: {}", addr);
-                    let events = profile
-                        .run_test(
-                            &*test,
-                            addr,
-                            connect_to_rootcanal,
-                            move |i| {
-                                let iut = iut.clone();
-                                unblock(move || iut.interact(i))
-                            },
-                            Some("/tmp/audiodata"),
-                        )
-                        .await;
+                println!("Local address: {}", addr);
+                let events = profile
+                    .run_test(
+                        &*test,
+                        addr,
+                        connect_to_rootcanal,
+                        move |i| {
+                            let iut = iut.clone();
+                            unblock(move || iut.interact(i))
+                        },
+                        Some("/tmp/audiodata"),
+                    )
+                    .await;
 
-                    let result: Result<test::TestResult> = logger::print(events)
-                        .await
-                        .context("Runtime Error")
-                        .try_into();
-
-                    result.map(Event::Item)
-                }
-            })
-            .or(ctrlc)
-            .take_while(|v| !matches!(v, Ok(Event::CtrlC)))
+                let result: Result<test::TestResult> = logger::print(events)
+                    .await
+                    .context("Runtime Error")
+                    .try_into();
+                result
+            }
+        });
+        pin!(stream);
+        let results: Vec<_> = abortable(stream, ctrlc)
             .chain(stream::repeat_with(|| {
                 // Provide a None result to all the test that
                 // have not been executed (because of a Ctrl-C)
-                Ok(Event::Item(test::TestResult::None))
+                Ok(test::TestResult::None)
             }))
             .zip(stream::iter(tests.into_iter()))
-            .map(|(result, name)| match result {
-                Ok(Event::Item(result)) => Ok(test::TestExecution { name, result }),
-                Ok(Event::CtrlC) => unreachable!(),
-                Err(e) => Err(e),
-            })
+            .map(|(result, name)| result.map(|result| test::TestExecution { name, result }))
             .try_collect()
             .await?;
 

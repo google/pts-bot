@@ -21,6 +21,7 @@ impl<S: PartialEq<str> + Debug> TryFrom<Result<Option<S>, anyhow::Error>> for Te
             Ok(Some(ref s)) if s == "PASS" => Ok(TestResult::Pass),
             Ok(Some(ref s)) if s == "FAIL" => Ok(TestResult::Fail),
             Ok(Some(ref s)) if s == "INCONC" => Ok(TestResult::Inconclusive),
+            Ok(Some(ref s)) if s == "NONE" => Ok(TestResult::None),
             Ok(None) => Ok(TestResult::None),
             Err(e) => Ok(TestResult::Error(e)),
             value => Err(anyhow!("unknown test result {:?}", value)),

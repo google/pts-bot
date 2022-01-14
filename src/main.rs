@@ -172,7 +172,7 @@ fn main() -> Result<()> {
                 let iut_args = iut_args.clone();
 
                 async move {
-                    let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args)?);
+                    let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args, &*test)?);
 
                     let addr = {
                         let iut = iut.clone();

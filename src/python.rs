@@ -1,7 +1,7 @@
 use std::fmt;
 
 use pyo3::{
-    types::{IntoPyDict, PyBytes, PyModule, PyString},
+    types::{IntoPyDict, PyBytes, PyDict, PyModule, PyString},
     PyErr, PyObject, PyResult, Python,
 };
 
@@ -34,7 +34,7 @@ pub struct PythonIUT(PyObject);
 /// Bind to an IUT python object with the following template:
 ///
 /// class IUT:
-///    def __init__(self, args: List[str]):
+///    def __init__(self, test: str, args: List[str], **kwargs):
 ///        """Initialize the instance manager."""
 ///        pass
 ///
@@ -63,11 +63,14 @@ pub struct PythonIUT(PyObject);
 ///        pass
 ///
 impl PythonIUT {
-    pub fn new(name: &str, args: &Vec<String>) -> Result<Self, Error> {
+    pub fn new(name: &str, args: &Vec<String>, test: &str) -> Result<Self, Error> {
         Python::with_gil(|py| -> PyResult<Self> {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("test", test)?;
+            kwargs.set_item("args", args)?;
             PyModule::import(py, name)?
                 .getattr("IUT")?
-                .call1((args.clone(),))
+                .call((), Some(kwargs))
                 .map(|obj| Self(obj.into()))
         })
         .map_err(Error)

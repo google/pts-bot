@@ -12,6 +12,7 @@ mod wine;
 mod xml_model;
 
 use std::collections::HashMap;
+use std::convert::identity;
 use std::io;
 use std::path::PathBuf;
 use std::task::Poll;
@@ -68,6 +69,8 @@ pub enum RunError<Err1, Err2> {
     Pipe(#[source] Err1),
     #[error("Interact failed")]
     Interact(#[source] Err2),
+    #[error("Unable to get PTS Bluetooth Address")]
+    NoAddress,
 }
 
 impl Interaction {
@@ -182,15 +185,20 @@ impl<'pts> Profile<'pts> {
 
         let mut messages = messages
             .map(|r| r.map_err(RunError::IO))
-            .or(stream::once(hci).then(|x| x).filter_map(Result::transpose));
+            .or(stream::once(hci)
+                .then(identity)
+                .filter_map(Result::transpose));
 
-        let pts_addr = messages
+        let mut pts_addr = messages
             .find_map(|message| match message {
-                Ok(Message::Addr { value }) => Some(value),
+                Ok(Message::Addr { value }) => Some(Ok(value)),
+                Err(e) => Some(Err(e)),
                 _ => None,
             })
             .await
-            .unwrap();
+            .ok_or(RunError::NoAddress)
+            .and_then(identity)
+            .map_err(|e| stream::once(Err(e)));
 
         let (tx, rx) = async_channel::unbounded();
 
@@ -202,24 +210,26 @@ impl<'pts> Profile<'pts> {
             Ok(None)
         };
 
-        let messages = stream::poll_fn(move |cx| match messages.poll_next(cx) {
-            Poll::Ready(Some(Ok(Message::ImplicitSend { description, style }))) => {
-                tx.try_send(Interaction {
-                    pts_addr,
-                    style,
-                    description: description.to_owned(),
-                })
-                .unwrap();
-                Poll::Ready(Some(Ok(Message::ImplicitSend { description, style })))
-            }
-            Poll::Ready(None) => {
-                tx.close();
-                Poll::Ready(None)
-            }
-            x => x,
+        let messages = stream::poll_fn(move |cx| match pts_addr {
+            Ok(pts_addr) => match messages.poll_next(cx) {
+                Poll::Ready(Some(Ok(Message::ImplicitSend { description, style }))) => {
+                    let _ = tx.try_send(Interaction {
+                        pts_addr,
+                        style,
+                        description: description.to_owned(),
+                    });
+                    Poll::Ready(Some(Ok(Message::ImplicitSend { description, style })))
+                }
+                Poll::Ready(None) => {
+                    tx.close();
+                    Poll::Ready(None)
+                }
+                x => x,
+            },
+            Err(ref mut e) => e.poll_next(cx),
         })
         .or(stream::once(answers)
-            .then(|x| x)
+            .then(identity)
             .filter_map(Result::transpose));
 
         log::parse(messages)

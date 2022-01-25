@@ -31,9 +31,7 @@ mod test;
 async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
     let opts = Opts::from_args();
     let rootcanal_port = opts.rootcanal;
-    let tcp = Async::<TcpStream>::connect((Ipv4Addr::LOCALHOST, rootcanal_port))
-        .await
-        .expect("Connect");
+    let tcp = Async::<TcpStream>::connect((Ipv4Addr::LOCALHOST, rootcanal_port)).await?;
 
     let (hcirx, hcitx) = io::split(port);
     let (tcprx, tcptx) = io::split(tcp);

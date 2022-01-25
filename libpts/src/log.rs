@@ -4,7 +4,7 @@ use crate::ttcn;
 
 use std::iter::Iterator;
 
-use futures_lite::{Stream, StreamExt};
+use futures_lite::{pin, Stream, StreamExt};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TimerEvent {
@@ -300,4 +300,38 @@ pub fn parse<E>(
         Ok(_) => None,
         Err(e) => Some(Err(e)),
     })
+}
+
+pub fn map_with_stack<E, R>(
+    events: impl Stream<Item = Result<Event, E>>,
+    mut f: impl FnMut(Result<(Event, &[String]), E>) -> R,
+) -> impl Stream<Item = R> {
+    events.scan(Vec::new(), move |stack, result| {
+        Some(f(result.map(|event| {
+            match event.kind {
+                EventKind::EnterStep => stack.push(event.name.clone()),
+                EventKind::ExitStep => {
+                    let name = stack.pop();
+                    assert_eq!(name.as_ref(), Some(&event.name));
+                }
+                _ => {}
+            }
+            (event, &stack[..])
+        })))
+    })
+}
+
+pub async fn final_verdict<E>(
+    events: impl Stream<Item = Result<Event, E>>,
+) -> Result<Option<String>, E> {
+    pin!(events);
+    events
+        .try_fold(None, |result, event| {
+            Ok(if let EventKind::FinalVerdict = event.kind {
+                Some(event.name)
+            } else {
+                result
+            })
+        })
+        .await
 }

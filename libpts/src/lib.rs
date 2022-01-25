@@ -24,11 +24,12 @@ use thiserror::Error;
 
 pub use crate::bd_addr::BdAddr;
 use crate::hci::HCIPort;
+use crate::pts::Message;
 use crate::wine::{Wine, WineArch};
 use crate::xml_model::{ets::Ets, picsx::Pics, pixitx::Pixit, XMLModel};
 
-pub use crate::log::Event;
-pub use crate::pts::{MMIStyle, Message};
+pub use crate::log::{final_verdict, map_with_stack, Event, EventKind};
+pub use crate::pts::MMIStyle;
 
 pub struct Interaction {
     pts_addr: BdAddr,

@@ -1,8 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::io::Write;
-
-use futures_lite::{pin, Stream, StreamExt};
+use std::io::{self, Write};
 
 use termion::{color, style};
 
@@ -65,19 +63,19 @@ fn print_header(
     step: &str,
     kind: &EventKind,
     include_kind_name: bool,
-) {
-    write!(to, "{}", style::Faint).unwrap();
+) -> io::Result<()> {
+    write!(to, "{}", style::Faint)?;
 
     if let Some(time) = time {
-        write!(to, "{:06}ms", time).unwrap();
+        write!(to, "{:06}ms", time)?;
     } else {
-        write!(to, "{:8}", "").unwrap();
+        write!(to, "{:8}", "")?;
     }
 
-    write!(to, "{} {}", style::Reset, color::Fg(color(step))).unwrap();
+    write!(to, "{} {}", style::Reset, color::Fg(color(step)))?;
 
-    write!(to, "{:>20}", &step[step.len().saturating_sub(20)..]).unwrap();
-    write!(to, "{} ", style::Reset).unwrap();
+    write!(to, "{:>20}", &step[step.len().saturating_sub(20)..])?;
+    write!(to, "{} ", style::Reset)?;
 
     let (bg, fg) = kind_color(kind);
     write!(
@@ -93,75 +91,52 @@ fn print_header(
         },
         style::Reset
     )
-    .unwrap();
 }
 
-fn print_multiline(to: &mut impl Write, kind: &EventKind, data: &str) {
+fn print_multiline(to: &mut impl Write, kind: &EventKind, data: &str) -> io::Result<()> {
     for (index, line) in data.split('\n').enumerate() {
         if index != 0 {
-            writeln!(to).unwrap();
-            print_header(to, None, "", kind, false);
+            writeln!(to)?;
+            print_header(to, None, "", kind, false)?;
         }
-        write!(to, "{}", line).unwrap();
+        write!(to, "{}", line)?;
     }
+    Ok(())
 }
 
-pub async fn print<E>(
-    to: &mut impl Write,
-    events: impl Stream<Item = Result<Event, E>>,
-) -> Result<Option<String>, E> {
-    let mut stack: Vec<String> = Vec::new();
-    pin!(events);
-    let events = events.try_fold(None, |result, event| {
-        let step = stack.last().map(|last| last as &str).unwrap_or("");
+pub fn print(to: &mut impl Write, event: &Event, stack: &[String]) -> io::Result<()> {
+    let step = stack.last().map(|last| last as &str).unwrap_or(&"");
 
-        print_header(to, event.time, step, &event.kind, true);
+    print_header(to, event.time, step, &event.kind, true)?;
 
-        match event.kind {
-            EventKind::Timer(event) => write!(to, "{:?} ", event).unwrap(),
-            _ => {}
-        };
+    if let EventKind::Timer(event) = event.kind {
+        write!(to, "{:?} ", event)?;
+    }
 
-        print_multiline(to, &event.kind, &*event.name);
+    print_multiline(to, &event.kind, &*event.name)?;
 
-        match event.kind {
-            EventKind::Assign => write!(to, " :=").unwrap(),
-            EventKind::FinalVerdict => write!(to, " (final)").unwrap(),
-            _ => {}
-        };
+    match event.kind {
+        EventKind::Assign => write!(to, " :=")?,
+        EventKind::FinalVerdict => write!(to, " (final)")?,
+        _ => {}
+    }
 
-        if let Some(values) = event.values {
-            if event.kind == EventKind::EnterStep {
-                write!(to, "(").unwrap();
-            } else {
-                write!(to, " ").unwrap();
-            }
-            for (index, argument) in values.iter().enumerate() {
-                if index != 0 {
-                    write!(to, ", ").unwrap();
-                }
-                print_multiline(to, &event.kind, &*format!("{}", argument));
-            }
-            if event.kind == EventKind::EnterStep {
-                write!(to, ")").unwrap();
-            }
+    if let Some(values) = &event.values {
+        if event.kind == EventKind::EnterStep {
+            write!(to, "(")?;
+        } else {
+            write!(to, " ")?;
         }
-
-        writeln!(to).unwrap();
-
-        Ok(match event.kind {
-            EventKind::FinalVerdict => Some(event.name),
-            EventKind::EnterStep => {
-                stack.push(event.name);
-                result
+        for (index, argument) in values.iter().enumerate() {
+            if index != 0 {
+                write!(to, ", ")?;
             }
-            EventKind::ExitStep => {
-                let pop = stack.pop();
-                assert_eq!(pop, Some(event.name));
-                result
-            }
-            _ => result,
-        })
-    });
-    events.await
+            print_multiline(to, &event.kind, &*format!("{}", argument))?;
+        }
+        if event.kind == EventKind::EnterStep {
+            write!(to, ")")?;
+        }
+    }
+
+    writeln!(to)
 }

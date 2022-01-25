@@ -86,6 +86,10 @@ struct Opts {
     #[structopt(short, long)]
     list: bool,
 
+    /// Stop after first non sucessfull result
+    #[structopt(long)]
+    fail_fast: bool,
+
     /// IUT parameters
     args: Vec<String>,
 }
@@ -168,6 +172,7 @@ fn main() -> Result<()> {
     }
 
     let ctrlc = CtrlC::new().context("Failed to create Ctrl+C handler")?;
+    let fail_fast = opts.fail_fast;
 
     block_on(async move {
         let stream = stream::iter(tests.clone().into_iter()).then(|test| {
@@ -216,6 +221,14 @@ fn main() -> Result<()> {
         });
         pin!(stream);
         let results: Vec<_> = abortable(stream, ctrlc)
+            .scan(false, |failing, result| {
+                if *failing && fail_fast {
+                    None
+                } else {
+                    *failing |= !matches!(result, Ok(test::TestResult::Pass));
+                    Some(result)
+                }
+            })
             .chain(stream::repeat_with(|| {
                 // Provide a None result to all the test that
                 // have not been executed (because of a Ctrl-C)

@@ -14,34 +14,6 @@ libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to 
 sudo apt install bazel wine
 ```
 
-### Running libPTS "demo" binary
-
-A running RootCanal instance is required to run the binary.
-
-```bash
-root-canal
-```
-
-You can start the binary as follow
-
-```bash
-cargo run --example eiffel -- --eiffel true --profile A2DP
-```
-
-`true` in the previous command is the Device Under Test (DUT) binary to be used
-
-### Use Eiffel as DUT
-
-```bash
-sudo apt install bash-builtins
-git clone sso://eiffel/host
-cd host
-git fetch sso://eiffel/host refs/changes/07/4807/1 && git checkout -b change-4807 FETCH_HEAD
-./Taskfile tool -w --device=rootcanal pts
-cd $LIBPTS_DIR
-cargo run --example eiffel -- --eiffel $EIFFELHOST_DIR/target/posix-gcc-debug/pts --profile A2DP
-```
-
 ## Snippets
 
 ### Run tests

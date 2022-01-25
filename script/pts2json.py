@@ -13,10 +13,13 @@ def to_json(ics_xml_path: str):
     config_file = open(_file_name, "w")
     TSPC = {'ics': {}, 'ixit': {}}
     ics = TSPC['ics']
+    ixit = TSPC['ixit']
+    ixit['default'] = {}
     ics_xml = minidom.parse(ics_xml_path)
     profiles = ics_xml.getElementsByTagName('profile')
     for profile in profiles:
         profile_name = profile.getElementsByTagName('name')[0].firstChild.nodeValue
+        ixit[profile_name] = {}
         items = profile.getElementsByTagName('item')
         for item in items:
             table = item.getElementsByTagName('table')[0].firstChild.nodeValue

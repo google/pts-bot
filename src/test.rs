@@ -40,7 +40,7 @@ pub fn report(results: Vec<TestExecution>) {
 
         match execution.result {
             TestResult::Pass => print!(" {}✔{} ", color::Fg(color::Green), style::Reset),
-            TestResult::Fail => print!(" {}✘{}  ", color::Fg(color::Red), style::Reset),
+            TestResult::Fail => print!(" {}✘{} ", color::Fg(color::Red), style::Reset),
             TestResult::Inconclusive => print!(" {}?{} ", color::Fg(color::Yellow), style::Reset),
             TestResult::None => print!(
                 "{}{}N/A{}",

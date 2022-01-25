@@ -14,21 +14,12 @@ libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to 
 sudo apt install bazel wine
 ```
 
-### Running RootCanal
-
-[RootCanal](https://android.googlesource.com/platform/system/bt/+/refs/heads/master/vendor_libs/test_vendor_lib/) is a virtual bluetooth controller. It can be built as follow
-
-```bash
-sudo apt install flex bison
-bazel build :root-canal
-```
-
 ### Running libPTS "demo" binary
 
 A running RootCanal instance is required to run the binary.
 
 ```bash
-bazel run :root-canal
+root-canal
 ```
 
 You can start the binary as follow

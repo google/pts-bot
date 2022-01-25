@@ -19,14 +19,12 @@ use std::task::Poll;
 
 use futures_lite::{stream, Future, Stream, StreamExt};
 
-use async_channel;
-
 use thiserror::Error;
 
 pub use crate::bd_addr::BdAddr;
 use crate::hci::HCIPort;
 use crate::wine::{Wine, WineArch};
-use crate::xml_model::{ets::ETS, picsx::PICS, pixitx::PIXIT, XMLModel};
+use crate::xml_model::{ets::Ets, picsx::Pics, pixitx::Pixit, XMLModel};
 
 pub use crate::log::Event;
 pub use crate::pts::{MMIStyle, Message};
@@ -48,9 +46,9 @@ pub struct PTS {
 pub struct Profile<'pts> {
     name: String,
     pts: &'pts PTS,
-    ets: ETS,
-    pics: PICS,
-    pixit: PIXIT,
+    ets: Ets,
+    pics: Pics,
+    pixit: Pixit,
 }
 
 #[derive(Debug, Error)]
@@ -113,12 +111,12 @@ impl PTS {
     }
 
     pub fn profile(&self, name: &str) -> Option<Profile<'_>> {
-        let ets = ETS::parse(name, &self.wine).ok()?;
-        let pics = PICS::parse(name, &self.wine).ok()?;
-        let pixit = PIXIT::parse(name, &self.wine).ok()?;
+        let ets = Ets::parse(name, &self.wine).ok()?;
+        let pics = Pics::parse(name, &self.wine).ok()?;
+        let pixit = Pixit::parse(name, &self.wine).ok()?;
 
         Some(Profile {
-            pts: &self,
+            pts: self,
             name: name.to_owned(),
             ets,
             pics,

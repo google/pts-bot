@@ -6,7 +6,6 @@ use async_io::Async;
 use futures_lite::{io::BufReader, AsyncBufReadExt, Stream, StreamExt};
 
 use serde::Deserialize;
-use serde_json;
 use serde_repr::Deserialize_repr;
 
 use crate::bd_addr::BdAddr;
@@ -113,7 +112,7 @@ impl<'wine> Server<'wine> {
         mut self,
     ) -> (
         impl Stream<Item = std::io::Result<Message>> + 'wine,
-        impl FnMut(&str) -> () + 'wine,
+        impl FnMut(&str) + 'wine,
     ) {
         let stdout = self.0.stdout.take().unwrap();
         let stdout = BufReader::new(Async::new(stdout).unwrap());
@@ -129,7 +128,7 @@ impl<'wine> Server<'wine> {
                 })
             }),
             move |answer| {
-                write!(self.0.stdin.as_mut().unwrap(), "{}\n", answer);
+                writeln!(self.0.stdin.as_mut().unwrap(), "{}", answer);
             },
         )
     }

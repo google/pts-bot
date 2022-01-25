@@ -50,12 +50,12 @@ pub struct Wine {
     prefix: PathBuf,
 }
 
-const EMPTY_FONTCONFIG_FILE: &'static str = r#"<?xml version="1.0"?>
+const EMPTY_FONTCONFIG_FILE: &str = r#"<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
 </fontconfig>"#;
 
-const ALSA_CONFIG_FILE: &'static str = r#"pcm.!default {
+const ALSA_CONFIG_FILE: &str = r#"pcm.!default {
     type file
     slave {
         pcm {
@@ -213,7 +213,7 @@ impl Wine {
                     e.path()
                         .file_name()
                         .map(|name| name.to_string_lossy().to_string())
-                        .ok_or(io::Error::new(io::ErrorKind::Other, "invalid file name"))
+                        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid file name"))
                 })
             })
             .collect()

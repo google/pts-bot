@@ -3,7 +3,7 @@ use serde::Deserialize;
 use super::XMLModel;
 
 #[derive(Debug, Deserialize)]
-pub struct PIXIT {
+pub struct Pixit {
     #[serde(rename = "Name")]
     pub name: String,
     #[serde(rename = "Version")]
@@ -30,12 +30,12 @@ pub struct Row {
     pub value: String,
 }
 
-impl<'a> XMLModel<'a> for PIXIT {
+impl<'a> XMLModel<'a> for Pixit {
     const PATH: &'static str = "bin/Bluetooth/PIXITX";
     const FILE_TYPE: &'static str = "pixitx";
 }
 
-impl PIXIT {
+impl Pixit {
     pub fn iter(&self) -> impl Iterator<Item = &Row> {
         self.rows.rows.iter()
     }
@@ -44,7 +44,7 @@ impl PIXIT {
 #[cfg(test)]
 mod test {
 
-    use super::{Row, PIXIT};
+    use super::{Pixit, Row};
     use serde_xml_rs::from_str;
 
     #[test]
@@ -62,7 +62,7 @@ mod test {
                 </Row>
             </Rows>
         </PIXIT>"#;
-        let pixitx: PIXIT = from_str(&pixitx_xml).unwrap_or_else(|err| {
+        let pixitx: Pixit = from_str(&pixitx_xml).unwrap_or_else(|err| {
             println!("error: {}", err);
             panic!();
         });
@@ -95,10 +95,10 @@ mod test {
                     <Description>The unique 48-bit Bluetooth device address (BD_ADDR) of the IUT. This was filled in during workspace creation.</Description>
                     <Type>OCTETSTRING</Type>
                     <Value>000272406FAC</Value>
-		        </Row>
+                </Row>
             </Rows>
         </PIXIT>"#;
-        let pixitx: PIXIT = from_str(&pixitx_xml).unwrap_or_else(|err| {
+        let pixitx: Pixit = from_str(&pixitx_xml).unwrap_or_else(|err| {
             println!("error: {}", err);
             panic!();
         });

@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer};
 use super::XMLModel;
 
 #[derive(Debug, Deserialize)]
-pub struct PICS {
+pub struct Pics {
     #[serde(rename = "Rows")]
     rows: Rows,
 }
@@ -41,12 +41,12 @@ where
     }
 }
 
-impl<'a> XMLModel<'a> for PICS {
+impl<'a> XMLModel<'a> for Pics {
     const PATH: &'static str = "bin/Bluetooth/PICSX";
     const FILE_TYPE: &'static str = "picsx";
 }
 
-impl PICS {
+impl Pics {
     pub fn iter(&self) -> impl Iterator<Item = &Row> {
         self.rows.rows.iter()
     }
@@ -55,7 +55,7 @@ impl PICS {
 #[cfg(test)]
 mod test {
 
-    use super::{Row, PICS};
+    use super::{Pics, Row};
     use serde_xml_rs::from_str;
 
     #[test]
@@ -71,7 +71,7 @@ mod test {
                 </Row>
             </Rows>
         </PICS>"#;
-        let pics: PICS = from_str(&picsx_xml).unwrap();
+        let pics: Pics = from_str(&picsx_xml).unwrap();
         let row = Row {
             name: String::from("TSPC_A2DP_1_1"),
             description: String::from("Source (C.1)"),
@@ -100,7 +100,7 @@ mod test {
               </Row>
             </Rows>
         </PICS>"#;
-        let pics: PICS = from_str(&picsx_xml).unwrap();
+        let pics: Pics = from_str(&picsx_xml).unwrap();
         let row1 = Row {
             name: String::from("TSPC_A2DP_1_1"),
             description: String::from("Source (C.1)"),

@@ -105,9 +105,8 @@ pub async fn print<E>(events: impl Stream<Item = Result<Event, E>>) -> Result<Op
 
         print_header(event.time, step, &event.kind, true);
 
-        match event.kind {
-            EventKind::Timer(event) => print!("{:?} ", event),
-            _ => {}
+        if let EventKind::Timer(event) = event.kind {
+            print!("{:?} ", event);
         }
 
         print_multiline(&event.kind, &*event.name);

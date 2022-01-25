@@ -5,7 +5,7 @@ pub fn id_to_mmi(profile: &str, id: u32) -> Option<&'static str> {
 }
 
 pub fn parse(description: &str) -> Option<(&str, &str, &str, &str)> {
-    let description = description.strip_prefix("{")?;
+    let description = description.strip_prefix('{')?;
     let (header, description) = split_once(description, "}")?;
     let (id, header) = split_once(header, ",")?;
     let (test, profile) = split_once(header, ",")?;

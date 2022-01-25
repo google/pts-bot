@@ -6,11 +6,11 @@ use crate::wine::Wine;
 
 const SERVER: &[u8] = include_bytes!(env!("SERVER_PATH"));
 
-pub const PTS_PATH: &'static str = "pts";
+pub const PTS_PATH: &str = "pts";
 
 // Directory name where the installer extract his
 // files with the `/extract` flag
-const INSTALLER_EXTRACT_DIR: &'static str = "BE36A8D";
+const INSTALLER_EXTRACT_DIR: &str = "BE36A8D";
 
 pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
     let drive_c = wine.drive_c();

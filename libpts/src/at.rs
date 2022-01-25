@@ -47,7 +47,7 @@ fn value(input: &str) -> IResult<&str, &str> {
 }
 
 // List only commands which accept parameters.
-const COMMANDS: &'static [&'static str] = &[
+const COMMANDS: &[&str] = &[
     "+CRING:", "+CREG:", "+CLIP:", "+COLP:", "+CCWA:", "+CUSB:", "+CCCM:", "+CSSI:", "+CSSU:",
     "+CBC:", "+CSQ:", "+CIEV:", "+CIND:", "+CCWV:", "+CTZV:", "+CGREG:", "+CMTI:", "+CMT:",
     "+CDSI:", "+CBM:", "+BINP:", "+CNUM:", "+COPS:",

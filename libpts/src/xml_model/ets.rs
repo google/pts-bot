@@ -8,7 +8,7 @@ use super::fn_context::FnContext;
 use super::XMLModel;
 
 #[derive(Debug, Deserialize)]
-pub struct ETS {
+pub struct Ets {
     #[serde(rename = "ETSVersion")]
     version: Option<String>,
     #[serde(rename = "Profile")]
@@ -62,11 +62,11 @@ impl Group {
     }
 }
 
-impl<'a> XMLModel<'a> for ETS {
+impl<'a> XMLModel<'a> for Ets {
     const PATH: &'static str = "bin/Bluetooth/Ets/";
 }
 
-impl ETS {
+impl Ets {
     pub fn enabled_testcases<'a, F: 'a + Fn(&str) -> Option<bool>>(
         &'a self,
         get_value: F,

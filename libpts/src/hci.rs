@@ -3,7 +3,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use nix;
 use nix::fcntl::OFlag;
 use nix::pty;
 

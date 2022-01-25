@@ -147,7 +147,7 @@ pub fn parse_list(input: &str) -> IResult<&str, Vec<TTCNValue>> {
 fn flatten<'k, 'v>(key: &'k str, value: &'v TTCNValue) -> (Cow<'k, str>, &'v TTCNValue) {
     match value {
         TTCNValue::Record(r) if r.len() == 1 => {
-            let (rkey, rvalue) = r.into_iter().next().unwrap();
+            let (rkey, rvalue) = r.iter().next().unwrap();
             let (rkey, rvalue) = flatten(rkey, rvalue);
             (Cow::Owned(format!("{}.{}", key, rkey)), rvalue)
         }
@@ -193,27 +193,27 @@ impl fmt::Display for TTCNValue {
             TTCNValue::AnyValue => write!(f, "{}?{}", style::Bold, style::Reset),
             TTCNValue::AnyOrOmit => write!(f, "{}*{}", style::Bold, style::Reset),
             TTCNValue::Record(record) => {
-                if record.len() == 0 {
+                if record.is_empty() {
                     write!(f, "{{}}")
                 } else {
-                    write!(f, "{{\n")?;
+                    writeln!(f, "{{")?;
                     for (key, value) in record {
                         let padding = padding + 2;
                         let (key, value) = flatten(key, value);
                         write!(f, "{:<1$}{key}: ", "", padding, key = key)?;
                         write!(f, "{:padding$}", value, padding = padding)?;
-                        write!(f, ",\n")?;
+                        writeln!(f, ",")?;
                     }
                     write!(f, "{:<1$}}}", "", padding)
                 }
             }
             TTCNValue::Array(array) => {
-                write!(f, "[\n")?;
+                writeln!(f, "[")?;
                 for value in array {
                     let padding = padding + 2;
                     write!(f, "{:<1$}", "", padding)?;
                     write!(f, "{:padding$}", value, padding = padding)?;
-                    write!(f, ",\n")?;
+                    writeln!(f, ",")?;
                 }
                 write!(f, "{:<1$}]", "", padding)
             }

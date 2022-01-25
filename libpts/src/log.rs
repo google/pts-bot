@@ -47,7 +47,7 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
 
     match logtype {
         LogType::Attach => {
-            let split: Vec<&str> = message.split(" ").collect();
+            let split: Vec<&str> = message.split(' ').collect();
 
             match split[..] {
                 [":", number, "Enter", "Test", "Step", step] => Event {

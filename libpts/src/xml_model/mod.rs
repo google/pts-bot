@@ -41,7 +41,7 @@ pub trait XMLModel<'a>: Deserialize<'a> {
 
         let mut de =
             Deserializer::new_from_reader(content.as_bytes()).non_contiguous_seq_elements(true);
-        let value: Self = Self::deserialize(&mut de).map_err(|err| Error::ParseFailed(err))?;
+        let value: Self = Self::deserialize(&mut de).map_err(Error::ParseFailed)?;
         Ok(value)
     }
 }

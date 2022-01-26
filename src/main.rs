@@ -15,7 +15,7 @@ use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
 
-use futures_lite::{future, io, pin, stream, FutureExt, Stream, StreamExt};
+use futures_lite::{future, io, pin, ready, stream, FutureExt, Stream, StreamExt};
 
 use async_io::{block_on, Async};
 
@@ -50,6 +50,27 @@ fn abortable<T>(
     stream::poll_fn(move |cx| match stream.poll_next(cx) {
         Poll::Pending => signal.poll(cx).map(|_| None),
         val => val,
+    })
+}
+
+fn take_until<T>(
+    mut stream: impl Stream<Item = T> + Unpin,
+    mut predicate: impl FnMut(&T) -> bool,
+) -> impl Stream<Item = T> + Unpin {
+    let mut flag = false;
+    stream::poll_fn(move |cx| {
+        if flag {
+            Poll::Ready(None)
+        } else {
+            Poll::Ready(if let Some(x) = ready!(stream.poll_next(cx)) {
+                if predicate(&x) {
+                    flag = true;
+                }
+                Some(x)
+            } else {
+                None
+            })
+        }
     })
 }
 
@@ -220,24 +241,18 @@ fn main() -> Result<()> {
             }
         });
         pin!(stream);
-        let results: Vec<_> = abortable(stream, ctrlc)
-            .scan(false, |failing, result| {
-                if *failing && fail_fast {
-                    None
-                } else {
-                    *failing |= !matches!(result, Ok(test::TestResult::Pass));
-                    Some(result)
-                }
-            })
-            .chain(stream::repeat_with(|| {
-                // Provide a None result to all the test that
-                // have not been executed (because of a Ctrl-C)
-                Ok(test::TestResult::None)
-            }))
-            .zip(stream::iter(tests.into_iter()))
-            .map(|(result, name)| result.map(|result| test::TestExecution { name, result }))
-            .try_collect()
-            .await?;
+        let results: Vec<_> = take_until(abortable(stream, ctrlc), |result| {
+            fail_fast && !matches!(result, Ok(test::TestResult::Pass))
+        })
+        .chain(stream::repeat_with(|| {
+            // Provide a None result to all the test that
+            // have not been executed (because of a Ctrl-C)
+            Ok(test::TestResult::None)
+        }))
+        .zip(stream::iter(tests.into_iter()))
+        .map(|(result, name)| result.map(|result| test::TestExecution { name, result }))
+        .try_collect()
+        .await?;
 
         test::report(results);
         Ok(())

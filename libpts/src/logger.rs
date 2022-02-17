@@ -1,5 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 
 use futures_lite::{pin, Stream, StreamExt};
 
@@ -58,22 +59,29 @@ fn kind_color(kind: &EventKind) -> (&'static dyn color::Color, &'static dyn colo
     }
 }
 
-fn print_header(time: Option<u32>, step: &str, kind: &EventKind, include_kind_name: bool) {
-    print!("{}", style::Faint);
+fn print_header(
+    to: &mut impl Write,
+    time: Option<u32>,
+    step: &str,
+    kind: &EventKind,
+    include_kind_name: bool,
+) {
+    write!(to, "{}", style::Faint).unwrap();
 
     if let Some(time) = time {
-        print!("{:06}ms", time)
+        write!(to, "{:06}ms", time).unwrap();
     } else {
-        print!("{:8}", "");
+        write!(to, "{:8}", "").unwrap();
     }
 
-    print!("{} {}", style::Reset, color::Fg(color(step)));
+    write!(to, "{} {}", style::Reset, color::Fg(color(step))).unwrap();
 
-    print!("{:>20}", &step[step.len().saturating_sub(20)..]);
-    print!("{} ", style::Reset);
+    write!(to, "{:>20}", &step[step.len().saturating_sub(20)..]).unwrap();
+    write!(to, "{} ", style::Reset).unwrap();
 
     let (bg, fg) = kind_color(kind);
-    print!(
+    write!(
+        to,
         "{}{}{} {:^10} {} ",
         style::Bold,
         color::Bg(bg),
@@ -84,57 +92,62 @@ fn print_header(time: Option<u32>, step: &str, kind: &EventKind, include_kind_na
             ""
         },
         style::Reset
-    );
+    )
+    .unwrap();
 }
 
-fn print_multiline(kind: &EventKind, data: &str) {
+fn print_multiline(to: &mut impl Write, kind: &EventKind, data: &str) {
     for (index, line) in data.split('\n').enumerate() {
         if index != 0 {
-            println!();
-            print_header(None, "", kind, false);
+            writeln!(to).unwrap();
+            print_header(to, None, "", kind, false);
         }
-        print!("{}", line);
+        write!(to, "{}", line).unwrap();
     }
 }
 
-pub async fn print<E>(events: impl Stream<Item = Result<Event, E>>) -> Result<Option<String>, E> {
+pub async fn print<E>(
+    to: &mut impl Write,
+    events: impl Stream<Item = Result<Event, E>>,
+) -> Result<Option<String>, E> {
     let mut stack: Vec<String> = Vec::new();
     pin!(events);
     let events = events.try_fold(None, |result, event| {
         let step = stack.last().map(|last| last as &str).unwrap_or("");
 
-        print_header(event.time, step, &event.kind, true);
-
-        if let EventKind::Timer(event) = event.kind {
-            print!("{:?} ", event);
-        }
-
-        print_multiline(&event.kind, &*event.name);
+        print_header(to, event.time, step, &event.kind, true);
 
         match event.kind {
-            EventKind::Assign => print!(" :="),
-            EventKind::FinalVerdict => print!(" (final)"),
+            EventKind::Timer(event) => write!(to, "{:?} ", event).unwrap(),
             _ => {}
-        }
+        };
+
+        print_multiline(to, &event.kind, &*event.name);
+
+        match event.kind {
+            EventKind::Assign => write!(to, " :=").unwrap(),
+            EventKind::FinalVerdict => write!(to, " (final)").unwrap(),
+            _ => {}
+        };
 
         if let Some(values) = event.values {
             if event.kind == EventKind::EnterStep {
-                print!("(");
+                write!(to, "(").unwrap();
             } else {
-                print!(" ");
+                write!(to, " ").unwrap();
             }
             for (index, argument) in values.iter().enumerate() {
                 if index != 0 {
-                    print!(", ");
+                    write!(to, ", ").unwrap();
                 }
-                print_multiline(&event.kind, &*format!("{}", argument));
+                print_multiline(to, &event.kind, &*format!("{}", argument));
             }
             if event.kind == EventKind::EnterStep {
-                print!(")");
+                write!(to, ")").unwrap();
             }
         }
 
-        println!();
+        writeln!(to).unwrap();
 
         Ok(match event.kind {
             EventKind::FinalVerdict => Some(event.name),

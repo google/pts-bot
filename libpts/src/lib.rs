@@ -16,8 +16,9 @@ use std::convert::identity;
 use std::io;
 use std::path::PathBuf;
 use std::task::Poll;
+use std::time::Duration;
 
-use futures_lite::{stream, Future, Stream, StreamExt};
+use futures_lite::{stream, Future, FutureExt, Stream, StreamExt};
 
 use thiserror::Error;
 
@@ -69,6 +70,8 @@ pub enum RunError<Err1, Err2> {
     Interact(#[source] Err2),
     #[error("Unable to get PTS Bluetooth Address")]
     NoAddress,
+    #[error("Timeout")]
+    Timeout,
 }
 
 impl Interaction {
@@ -144,6 +147,7 @@ impl<'pts> Profile<'pts> {
         mut pipe_hci: impl FnMut(HCI) -> Fut1 + 'pts,
         mut interact: impl FnMut(Interaction) -> Fut2 + 'pts,
         audio_output_path: Option<&str>,
+        inactivity_timeout: u64,
     ) -> impl Stream<Item = Result<Event, RunError<Err1, Err2>>> + 'pts
     where
         Fut1: 'pts + Future<Output = Result<(), Err1>>,
@@ -208,22 +212,35 @@ impl<'pts> Profile<'pts> {
             Ok(None)
         };
 
+        let mut timeout = async_io::Timer::after(Duration::from_secs(inactivity_timeout));
+
         let messages = stream::poll_fn(move |cx| match pts_addr {
-            Ok(pts_addr) => match messages.poll_next(cx) {
-                Poll::Ready(Some(Ok(Message::ImplicitSend { description, style }))) => {
-                    let _ = tx.try_send(Interaction {
-                        pts_addr,
-                        style,
-                        description: description.to_owned(),
-                    });
-                    Poll::Ready(Some(Ok(Message::ImplicitSend { description, style })))
+            Ok(pts_addr) => {
+                let message = messages.poll_next(cx);
+                if let Poll::Ready(message) = message {
+                    timeout.set_after(Duration::from_secs(inactivity_timeout));
+                    Poll::Ready(match message {
+                        Some(Ok(Message::ImplicitSend { description, style })) => {
+                            tx.try_send(Interaction {
+                                pts_addr,
+                                style,
+                                description: description.to_owned(),
+                            })
+                            .unwrap();
+                            Some(Ok(Message::ImplicitSend { description, style }))
+                        }
+                        None => {
+                            tx.close();
+                            None
+                        }
+                        x => x,
+                    })
+                } else if let Poll::Ready(_) = timeout.poll(cx) {
+                    Poll::Ready(Some(Err(RunError::Timeout)))
+                } else {
+                    Poll::Pending
                 }
-                Poll::Ready(None) => {
-                    tx.close();
-                    Poll::Ready(None)
-                }
-                x => x,
-            },
+            }
             Err(ref mut e) => e.poll_next(cx),
         })
         .or(stream::once(answers)

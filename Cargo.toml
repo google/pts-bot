@@ -1,7 +1,7 @@
 [package]
-name = "pts_bot"
+name = "pts-bot"
 version = "0.1.0"
-authors = ["David Duarte <licorne@google.com>", "Charlie Boutier <charliebout@google.com>"]
+authors = ["David Duarte <licorne@google.com>", "Charlie Boutier <charliebout@google.com>", "Thomas Girardier <girardier@google.com>"]
 edition = "2018"
 
 [dependencies]

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
 use std::future::Future;
-use std::io::BufReader;
+use std::io::{stdout, BufReader};
 use std::net::{Ipv4Addr, TcpStream};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -111,6 +111,10 @@ struct Opts {
     #[structopt(long)]
     fail_fast: bool,
 
+    /// Test inactivity timeout
+    #[structopt(short = "t", long, default_value = "60")]
+    inactivity_timeout: u64,
+
     /// IUT parameters
     args: Vec<String>,
 }
@@ -194,6 +198,7 @@ fn main() -> Result<()> {
 
     let ctrlc = CtrlC::new().context("Failed to create Ctrl+C handler")?;
     let fail_fast = opts.fail_fast;
+    let inactivity_timeout = opts.inactivity_timeout;
 
     block_on(async move {
         let stream = stream::iter(tests.clone().into_iter()).then(|test| {
@@ -230,10 +235,11 @@ fn main() -> Result<()> {
                             unblock(move || iut.interact(i))
                         },
                         Some("/tmp/audiodata"),
+                        inactivity_timeout,
                     )
                     .await;
 
-                let result: Result<test::TestResult> = logger::print(events)
+                let result: Result<test::TestResult> = logger::print(&mut stdout(), events)
                     .await
                     .context("Runtime Error")
                     .try_into();

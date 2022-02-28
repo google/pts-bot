@@ -10,10 +10,15 @@ rust_binary(
     edition = "2018",
     srcs = [
       "src/main.rs",
-      "src/mmi2grpc.rs",
+      "src/python.rs",
+      "src/test.rs",
     ],
     deps = [
       "@libpts",
+      "@libpts//third_party/cargo:futures_lite",
+      "@libpts//third_party/cargo:async_io",
+      "//third_party/cargo:async_ctrlc",
+      "//third_party/cargo:blocking",
       "//third_party/cargo:serde",
       "//third_party/cargo:serde_json",
       "//third_party/cargo:anyhow",

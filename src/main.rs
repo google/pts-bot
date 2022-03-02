@@ -28,10 +28,10 @@ use python::PythonIUT;
 
 mod test;
 
-async fn connect_to_rootcanal(port: HCI) -> std::io::Result<()> {
+async fn connect_to_hci(port: HCI) -> std::io::Result<()> {
     let opts = Opts::from_args();
-    let rootcanal_port = opts.rootcanal;
-    let tcp = Async::<TcpStream>::connect((Ipv4Addr::LOCALHOST, rootcanal_port)).await?;
+    let hci_port = opts.hci;
+    let tcp = Async::<TcpStream>::connect((Ipv4Addr::LOCALHOST, hci_port)).await?;
 
     let (hcirx, hcitx) = io::split(port);
     let (tcprx, tcptx) = io::split(tcp);
@@ -95,9 +95,9 @@ struct Opts {
     /// The prefix must include the profile.
     test_prefix: String,
 
-    /// Rootcanal HCI port
+    /// HCI port
     #[structopt(short, long, default_value = "6402")]
-    rootcanal: u16,
+    hci: u16,
 
     /// Selects the Python module implementing PTS interactions
     #[structopt(short, long, default_value = "mmi2grpc")]
@@ -229,7 +229,7 @@ fn main() -> Result<()> {
                     .run_test(
                         &*test,
                         addr,
-                        connect_to_rootcanal,
+                        connect_to_hci,
                         move |i| {
                             let iut = iut.clone();
                             unblock(move || iut.interact(i))

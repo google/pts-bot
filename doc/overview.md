@@ -3,9 +3,13 @@ Book: /blueberry/_book.yaml
 
 # PTS-bot
 
-**PTS-bot** is a standalone tool that automates the PTS provided by the
-Bluetooth SIG in [Wine](https://www.winehq.org/), providing all the PTS
-certification tests to Blueberry.
+**PTS-bot** is an automation of the Bluetooth Profile Tuning Suite (PTS), which
+is the testing tool provided by the Bluetooth standard to run Host certification
+tests. PTS-bot leverages the tests provided by the PTS but removes the need for
+a human operator and for a physical Bluetooth dongle to run them.
+
+![PTS-bot overview](
+/blueberry/guides/pts-bot/images/pts-bot.svg){: width="80%"}
 
 ## What is the PTS?
 
@@ -38,15 +42,15 @@ PTS-bot fixes the three major limitations of the PTS:
   compatibility layer allowing to run Windows applications on POSIX OS such as
   Linux.
 
-* **It emulates the Bluetooth communication between the PTS and the DUT using
+* **It can emulate the Bluetooth communication between the PTS and the DUT using
   Rootcanal**, a virtual Bluetooth Controller built for AOSP, removing the need
   for a physical communication. HCI calls on the DUT are routed to Rootcanal
   instead of the Bluetooth chip.
 
 * **It automates commands to the DUT through Bluetooth test interfaces (gRPC)**
   exposed by each layer of the Bluetooth stack. A translation layer is built to
-  convert the PTS Man Machine Interface (MMI) to gRPC, removing the need for a
-  human operator.
+  convert the actions on the DUT requested by the PTS through its Man Machine
+  Interfaces (MMIs) to gRPC, removing the need for a human operator.
 
 ### Goals
 
@@ -72,29 +76,28 @@ Bluetooth test requirements to avoid introducing regressions.
 
 ### Architecture
 
-PTS-bot is made of three components:
+PTS-bot is relying on three components:
 
 * [`libpts`](https://blueberry.git.corp.google.com/libpts/) manages the PTS
   environment, including the Wine server for running the PTS Windows binary and
   the PTS parser, used to produce well structured logs and to parse the PTS MMI.
   This library is mostly written in Rust.
 
-* [`mmi2grpc`](https://blueberry.git.corp.google.com/mmi2grpc/) translates
-  PTS commands into gRPC calls. This library is written in python so as to be
-  easily updated by other developers. It includes the Bluetooth gRPC test
-  interfaces generated from their protobuf definitions located in
-  the [`bt-test-interfaces`](
+* [`mmi2grpc`](https://blueberry.git.corp.google.com/mmi2grpc/) acts as a gRPC
+  client (the gRPC server being implemented on the DUT) and translates PTS MMIs
+  into gRPC calls. This library is written in python so as to be easily updated
+  by other developers. It includes the Bluetooth gRPC test interfaces generated
+  from their protobuf definitions located in the [`bt-test-interfaces`](
   https://blueberry.git.corp.google.com/bt-test-interfaces/) repository. Those
   interfaces are not solely designed for PTS-bot but aim to be used for all
   tests interacting with a Google Bluetooth stack (for both Android and embedded
   devices).
 
-* **A Rootcanal driver** for interacting with Rootcanal, a virtual Bluetooth
-  Controller used to simulate the Bluetooth communication, with which the device
-  under test must also be compatible.
+* **Rootcanal**, a virtual Bluetooth Controller used to simulate the Bluetooth
+  communication.
 
 ![PTS-bot architecture](
-/blueberry/guides/pts-bot/images/pts-bot-architecture.svg)
+/blueberry/guides/pts-bot/images/pts-bot-architecture.svg){: width="90%"}
 
 PTS-bot can run on the same machine as the Bluetooth stack to be tested and/or
 Rootcanal (for instance all being run on the same Linux computer, or within the
@@ -113,3 +116,12 @@ PTS-bot has two limitations:
 * Because it relies on a virtual Bluetooth Controller, it cannot check for any
   potential issues located inside the Bluetooth chip of a specific device. This
   means again that PTS-bot must be supplemented by physical tests.
+
+### Going further
+
+* Browsing PTS-bot source code: [`PTS-bot`](
+  https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
+  https://blueberry.git.corp.google.com/libpts/), [`mmi2grpc`](
+  https://blueberry.git.corp.google.com/mmi2grpc/).
+* Contribute to the [Blueberry test interfaces](
+  https://blueberry.git.corp.google.com/bt-test-interfaces/)

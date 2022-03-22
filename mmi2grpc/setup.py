@@ -25,15 +25,14 @@ class BuildGrpc(Command):
 
         proto_include = pkg_resources.resource_filename('grpc_tools', '_proto')
 
+        files = [f'blueberry/{f}' for f in os.listdir('proto/blueberry') if f.endswith('.proto')]
         protoc.main([
             'grpc_tools.protoc',
             '-Iproto',
             f'-I{proto_include}',
             '--python_out=.',
             '--custom_grpc_out=.',
-            'blueberry/host.proto',
-            'blueberry/a2dp.proto'
-        ])
+        ] + files)
 
 
 class BuildPyCommand(build_py):

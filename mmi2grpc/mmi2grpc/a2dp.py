@@ -1,9 +1,5 @@
 import time
-import os
-import textwrap
 from typing import Optional
-
-import grpc
 
 from blueberry.a2dp_grpc import A2DP
 from blueberry.host_grpc import Host
@@ -11,18 +7,21 @@ from blueberry.host_grpc import Host
 from blueberry.a2dp_pb2 import Sink, Source, PlaybackAudioRequest
 from blueberry.host_pb2 import Connection
 
-from ._description import assert_description, format_function
 from ._audio import AudioSignal
+from ._description import assert_description
+from ._proxy import ProfileProxy
 
 AUDIO_AMPLITUDE = 0.8
 
 
-class A2DPProxy:
+class A2DPProxy(ProfileProxy):
     connection: Optional[Connection] = None
     sink: Optional[Sink] = None
     source: Optional[Source] = None
 
     def __init__(self, channel):
+        super().__init__()
+
         self.host = Host(channel)
         self.a2dp = A2DP(channel)
 
@@ -34,15 +33,9 @@ class A2DPProxy:
             44100
         )
 
-    def interact(self, id: str, test: str, description: str, pts_addr: bytes):
-        try:
-            return getattr(self, id)(test=test, description=description, pts_addr=pts_addr)
-        except AttributeError:
-            code = format_function(id, description)
-            assert False, f'Unhandled mmi {id}\n{code}'
-
     @assert_description
-    def TSC_AVDTP_mmi_iut_accept_connect(self, test: str, pts_addr: bytes, **kwargs):
+    def TSC_AVDTP_mmi_iut_accept_connect(
+            self, test: str, pts_addr: bytes, **kwargs):
         """
         If necessary, take action to accept the AVDTP Signaling Channel
         Connection initiated by the tester.
@@ -137,7 +130,8 @@ class A2DPProxy:
         return "OK"
 
     @assert_description
-    def TSC_AVDTP_mmi_iut_initiate_out_of_range(self, pts_addr: bytes, **kwargs):
+    def TSC_AVDTP_mmi_iut_initiate_out_of_range(
+            self, pts_addr: bytes, **kwargs):
         """
         Move the IUT out of range to create a link loss scenario.
 
@@ -165,8 +159,10 @@ class A2DPProxy:
 
         if test == "AVDTP/SRC/ACP/SIG/SMG/BI-29-C":
             time.sleep(2)  # TODO: Remove, AVRCP SegFault
-        if test in ("A2DP/SRC/CC/BV-09-I", "A2DP/SRC/SET/BV-04-I",
-                    "AVDTP/SRC/ACP/SIG/SMG/BV-18-C", "AVDTP/SRC/ACP/SIG/SMG/BV-20-C",
+        if test in ("A2DP/SRC/CC/BV-09-I",
+                    "A2DP/SRC/SET/BV-04-I",
+                    "AVDTP/SRC/ACP/SIG/SMG/BV-18-C",
+                    "AVDTP/SRC/ACP/SIG/SMG/BV-20-C",
                     "AVDTP/SRC/ACP/SIG/SMG/BV-22-C"):
             time.sleep(1)  # TODO: Remove, AVRCP SegFault
         if test == "A2DP/SRC/SUS/BV-01-I":

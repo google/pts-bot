@@ -5,7 +5,7 @@ use std::io;
 use std::os::unix;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -96,6 +96,13 @@ impl Wine {
             .arg("--persistent")
             .env("WINEPREFIX", &prefix)
             .env("WINEARCH", &arch)
+            // Do no inherit stderr as wineserver will fork itself
+            // and create daemon processes but will only set stdin
+            // and stdout of thoses daemons. This result in the
+            // stderr of the parent to be kept and could live more
+            // than the parent process resulting in the parent
+            // stderr to be never closed
+            .stderr(Stdio::null())
             .spawn()
             .map(WineServer)
             .map_err(Error::Server)?;

@@ -9,6 +9,7 @@ from .a2dp import A2DPProxy
 from ._description import format_proxy
 
 GRPC_PORT = 8999
+MAX_RETRIES = 10
 
 
 class IUT:
@@ -29,14 +30,16 @@ class IUT:
     @property
     def address(self) -> bytes:
         with grpc.insecure_channel(f'localhost:{self.port}') as channel:
-            try:
-                return Host(channel).ReadLocalAddress(
-                    wait_for_ready=True).address
-            except grpc.RpcError:
-                print('Retry')
-                time.sleep(5)
-                return Host(channel).ReadLocalAddress(
-                    wait_for_ready=True).address
+            tries = 0
+            while True:
+                try:
+                    return Host(channel).ReadLocalAddress(wait_for_ready=True).address
+                except grpc.RpcError:
+                    if tries >= MAX_RETRIES:
+                        raise
+                    else:
+                        print('Retry', tries, 'of', MAX_RETRIES)
+                        time.sleep(1)
 
     def interact(self,
                  pts_address: bytes,

@@ -12,16 +12,6 @@ use futures_lite::{ready, AsyncRead, AsyncWrite};
 
 use crate::wine::Wine;
 
-fn nix_error_into_io_error(error: nix::Error) -> io::Error {
-    match error {
-        nix::Error::Sys(errno) => errno.into(),
-        nix::Error::InvalidPath => io::Error::new(io::ErrorKind::InvalidData, error),
-        nix::Error::InvalidUtf8 => io::Error::new(io::ErrorKind::InvalidData, error),
-        // FIXME: Change Other to Unsupported when gLinux rustc version >= 1.53.0
-        nix::Error::UnsupportedOperation => io::Error::new(io::ErrorKind::Other, error),
-    }
-}
-
 pub struct HCIPort {
     pty: Async<pty::PtyMaster>,
     waiting_read: bool,
@@ -34,13 +24,12 @@ pub struct WineHCIPort<'wine> {
 
 impl<'a> HCIPort {
     pub fn bind(wine: &'a Wine) -> io::Result<(HCIPort, WineHCIPort<'a>)> {
-        let pty =
-            pty::posix_openpt(OFlag::O_RDWR | OFlag::O_NOCTTY).map_err(nix_error_into_io_error)?;
+        let pty = pty::posix_openpt(OFlag::O_RDWR | OFlag::O_NOCTTY)?;
 
-        pty::grantpt(&pty).map_err(nix_error_into_io_error)?;
-        pty::unlockpt(&pty).map_err(nix_error_into_io_error)?;
+        pty::grantpt(&pty)?;
+        pty::unlockpt(&pty)?;
 
-        let path = pty::ptsname_r(&pty).map_err(nix_error_into_io_error)?;
+        let path = pty::ptsname_r(&pty)?;
 
         let com = wine.bind_com_port(Path::new(&path))?;
 

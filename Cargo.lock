@@ -519,7 +519,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pts_bot"
+name = "pts-bot"
 version = "0.1.0"
 dependencies = [
  "anyhow",

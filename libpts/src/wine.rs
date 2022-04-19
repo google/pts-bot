@@ -9,6 +9,9 @@ use std::process::{Child, Command};
 use std::thread;
 use std::time::Duration;
 
+use nix::sys::signal::{self, Signal};
+use nix::unistd::Pid;
+
 use thiserror::Error;
 
 pub enum WineArch {
@@ -249,6 +252,9 @@ impl Wine {
 impl Drop for WineServer {
     fn drop(&mut self) {
         // TODO: handle failure
-        let _ = self.0.kill().and_then(|_| self.0.wait());
+        let pid = Pid::from_raw(self.0.id() as i32);
+        let _ = signal::kill(pid, Signal::SIGINT)
+            .map_err(io::Error::from)
+            .and_then(|_| self.0.wait());
     }
 }

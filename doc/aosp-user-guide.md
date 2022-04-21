@@ -1,5 +1,5 @@
-Project: /blueberry/_project.yaml
-Book: /blueberry/_book.yaml
+Project: /pandora/_project.yaml
+Book: /pandora/_book.yaml
 
 # AOSP user guide
 
@@ -16,32 +16,26 @@ Cuttlefish instances).
 
 ## How it works
 
-Blueberry gRPC test interfaces are implemented on top of the Android Bluetooth
-module in an instrumented helper test app (located in
-`/packages/modules/Bluetooth/android/blueberry/server/`) which exposes a gRPC
+Pandora gRPC Bluetooth test interfaces are implemented on top of the
+Android Bluetooth module in the Android Bluetooth test server, which is an
+instrumented helper test app (located in
+`/packages/modules/Bluetooth/android/blueberry/server/`) that exposes a gRPC
 server on TCP port 8999. PTS-bot binary is run on the host device and triggers
-actions on the DUT through the Blueberry gRPC server.
+actions on the DUT through the server.
 
 Tests can be run using a virtual Bluetooth communication (with Rootcanal) or a
 physical one. Rootcanal runs on the DUT and also exposes the HCI traffic on a
 TCP port (7200 for a Cuttlefish instance, and 6211 for a physical DUT).
 
 The list of PTS tests to execute is computed from a JSON configuration file
-which contains the [ICS](/blueberry/guides/pts-bot/pts-tests).
+which contains the [ICS](/pandora/guides/pts-bot/pts-tests).
 
 The entire process is orchestrated using `atest` and Tradefed to
-build/install/run the Blueberry gRPC test server, run PTS-bot and retrieve logs
-from both.
+build/install/run the Android Bluetooth test server, run PTS-bot and retrieve
+logs from both.
 
 ![PTS-bot on AOSP using Tradefed](
-/blueberry/guides/pts-bot/images/pts-bot-aosp-tradefed.svg){: width="80%"}
-
-Since the host device is generally remote (on a Cloudtop instance for example),
-running physical tests requires to use an HCI proxy to forward the Bluetooth
-dongle HCI traffic to PTS-bot on a dedicated TCP port (1234).
-
-![PTS-bot on a remote host](
-/blueberry/guides/pts-bot/images/pts-bot-aosp-tradefed-remote.svg){: width="80%"}
+/pandora/guides/pts-bot/images/pts-bot-aosp-tradefed.svg){: width="90%"}
 
 ## Usage
 
@@ -96,3 +90,13 @@ to specify:
 ```shell
 atest pts-bot -v
 ```
+
+## Running PTS-bot with a physical Bluetooth communication
+
+Running physical PTS-bot tests can be helpful to debug some issues observed in
+virtual runs. Since the host device is generally remote (on a Cloudtop instance
+for example), running physical tests requires to use an HCI proxy to forward the
+Bluetooth dongle HCI traffic to PTS-bot on a dedicated TCP port (1234).
+
+![PTS-bot on a remote host](
+/pandora/guides/pts-bot/images/pts-bot-aosp-tradefed-physical.svg){: width="90%"}

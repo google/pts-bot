@@ -1,5 +1,5 @@
-Project: /blueberry/_project.yaml
-Book: /blueberry/_book.yaml
+Project: /pandora/_project.yaml
+Book: /pandora/_book.yaml
 
 # Understand PTS tests
 
@@ -63,7 +63,7 @@ the IUT. Any IUT has to be controllable and observable.
   set the IUT in certain states, or to verify data collected on the IUT.
 
 ![Lower and upper testers](
-/blueberry/guides/pts-bot/images/lower-upper-testers.svg){: width="70%"}
+/pandora/guides/pts-bot/images/lower-upper-testers.svg){: width="70%"}
 
 When using the standard PTS, the lower tester is the combination of the PTS
 software and dongle, and the upper tester is generally the UI of the DUT. A
@@ -71,15 +71,15 @@ human operator run the tests by using the PTS software and triggering actions
 on the DUT when the PTS requests them through its Man Machine Interfaces (MMIs).
 
 ![Lower and upper testers for PTS](
-/blueberry/guides/pts-bot/images/lower-upper-testers-pts.svg){: width="70%"}
+/pandora/guides/pts-bot/images/lower-upper-testers-pts.svg){: width="70%"}
 
-When using PTS-bot, the upper tester is the Blueberry test server implementing
-the [Blueberry gRPC test interfaces](/blueberry/guides/reference/doc/overview).
-PTS tests are automated by converting the PTS MMI calls to gRPC calls to the
-test interfaces.
+When using PTS-bot, the upper tester is the Pandora Bluetooth test server
+implementing the [gRPC Bluetooth test interfaces](
+/pandora/reference/doc/overview). PTS tests are automated by converting the PTS
+MMI calls to gRPC calls to the test interfaces.
 
 ![Lower and upper testers for PTS-bot](
-/blueberry/guides/pts-bot/images/lower-upper-testers-pts-bot.svg){: width="80%"}
+/pandora/guides/pts-bot/images/lower-upper-testers-pts-bot.svg){: width="80%"}
 
 ### Test Case categorization
 

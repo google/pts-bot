@@ -1,5 +1,5 @@
-Project: /blueberry/_project.yaml
-Book: /blueberry/_book.yaml
+Project: /pandora/_project.yaml
+Book: /pandora/_book.yaml
 
 # PTS-bot
 
@@ -9,7 +9,7 @@ tests. PTS-bot leverages the tests provided by the PTS but removes the need for
 a human operator and for a physical Bluetooth dongle to run them.
 
 ![PTS-bot overview](
-/blueberry/guides/pts-bot/images/pts-bot.svg){: width="80%"}
+/pandora/guides/pts-bot/images/pts-bot.svg){: width="80%"}
 
 ## What is the PTS?
 
@@ -43,9 +43,9 @@ PTS-bot fixes the three major limitations of the PTS:
   Linux.
 
 * **It can emulate the Bluetooth communication between the PTS and the DUT using
-  Rootcanal**, a virtual Bluetooth Controller built for AOSP, removing the need
-  for a physical communication. HCI calls on the DUT are routed to Rootcanal
-  instead of the Bluetooth chip.
+  Rootcanal**, a virtual Bluetooth Controller, initialy built for AOSP, removing
+  the need for a physical communication. HCI calls on the DUT are routed to
+  Rootcanal instead of the Bluetooth chip.
 
 * **It automates commands to the DUT through Bluetooth test interfaces (gRPC)**
   exposed by each layer of the Bluetooth stack. A translation layer is built to
@@ -54,15 +54,15 @@ PTS-bot fixes the three major limitations of the PTS:
 
 ### Goals
 
-PTS-bot has been built as an important first piece of Blueberry:
+PTS-bot has been built as an important first piece of Pandora:
 
 * **It provides a huge number of tests, without the need to implement the
   entire test framework**, which addresses the urgency of having tests for
   Google Bluetooth stacks.
 
 * **It will allow defining and unifying all Bluetooth test interfaces of
-  Blueberry**, both low-level and high-level (as PTS tests cover both). Other
-  types of Blueberry tests (device-to-device or interoperability) will then use
+  Pandora**, both low-level and high-level (as PTS tests cover both). Other
+  types of Pandora tests (device-to-device or interoperability) will then use
   the same interfaces.
 
 * **It will allow pre-certifying DUTs** using a virtual Bluetooth communication
@@ -88,7 +88,7 @@ PTS-bot is relying on three components:
   into gRPC calls. This library is written in python so as to be easily updated
   by other developers. It includes the Bluetooth gRPC test interfaces generated
   from their protobuf definitions located in the [`bt-test-interfaces`](
-  https://blueberry.git.corp.google.com/bt-test-interfaces/) repository. Those
+  https://pandora.git.corp.google.com/bt-test-interfaces/) repository. Those
   interfaces are not solely designed for PTS-bot but aim to be used for all
   tests interacting with a Google Bluetooth stack (for both Android and embedded
   devices).
@@ -97,7 +97,7 @@ PTS-bot is relying on three components:
   communication.
 
 ![PTS-bot architecture](
-/blueberry/guides/pts-bot/images/pts-bot-architecture.svg){: width="90%"}
+/pandora/guides/pts-bot/images/pts-bot-architecture.svg){: width="90%"}
 
 PTS-bot can run on the same machine as the Bluetooth stack to be tested and/or
 Rootcanal (for instance all being run on the same Linux computer, or within the
@@ -123,5 +123,5 @@ PTS-bot has two limitations:
   https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
   https://blueberry.git.corp.google.com/libpts/), [`mmi2grpc`](
   https://blueberry.git.corp.google.com/mmi2grpc/).
-* Contribute to the [Blueberry test interfaces](
-  https://blueberry.git.corp.google.com/bt-test-interfaces/)
+* Contribute to the [Bluetooth test interfaces](
+  https://pandora.git.corp.google.com/bt-test-interfaces/)

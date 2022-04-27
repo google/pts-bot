@@ -83,7 +83,7 @@ PTS-bot is relying on three components:
   the PTS parser, used to produce well structured logs and to parse the PTS MMI.
   This library is mostly written in Rust.
 
-* [`mmi2grpc`](https://blueberry.git.corp.google.com/mmi2grpc/) acts as a gRPC
+* [`mmi2grpc`](https://pandora.git.corp.google.com/mmi2grpc/) acts as a gRPC
   client (the gRPC server being implemented on the DUT) and translates PTS MMIs
   into gRPC calls. This library is written in python so as to be easily updated
   by other developers. It includes the Bluetooth gRPC test interfaces generated
@@ -122,6 +122,6 @@ PTS-bot has two limitations:
 * Browsing PTS-bot source code: [`PTS-bot`](
   https://blueberry.git.corp.google.com/PTS-bot/), [`libpts`](
   https://blueberry.git.corp.google.com/libpts/), [`mmi2grpc`](
-  https://blueberry.git.corp.google.com/mmi2grpc/).
+  https://pandora.git.corp.google.com/mmi2grpc/).
 * Contribute to the [Bluetooth test interfaces](
   https://pandora.git.corp.google.com/bt-test-interfaces/)

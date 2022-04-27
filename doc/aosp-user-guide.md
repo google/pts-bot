@@ -19,7 +19,7 @@ Cuttlefish instances).
 Pandora gRPC Bluetooth test interfaces are implemented on top of the
 Android Bluetooth module in the Android Bluetooth test server, which is an
 instrumented helper test app (located in
-`/packages/modules/Bluetooth/android/blueberry/server/`) that exposes a gRPC
+`/packages/modules/Bluetooth/android/pandora/server/`) that exposes a gRPC
 server on TCP port 8999. PTS-bot binary is run on the host device and triggers
 actions on the DUT through the server.
 
@@ -41,9 +41,9 @@ logs from both.
 
 Follow the instructions below to install, configure, and run PTS-bot.
 
-### Add Blueberry gLinux repository
+### Add Pandora gLinux repository
 
-PTS-bot is provided as a binary package from the Blueberry gLinux repository,
+PTS-bot is provided as a binary package from the Pandora gLinux repository,
 which you should add:
 
 ```shell
@@ -68,13 +68,13 @@ cp /google/data/ro/teams/blueberry/pts_setup_8_0_3.exe ~/.config/pts
 ### Clone the `mmi2grpc` repository
 
 ```shell
-git clone sso://blueberry/mmi2grpc
+git clone sso://pandora/mmi2grpc
 ```
 
 ### Configure PTS-bot
 
 Modify PTS-bot configuration located in
-`/packages/modules/Bluetooth/android/blueberry/server/configs/PtsBotTest.xml`
+`/packages/modules/Bluetooth/android/pandora/server/configs/PtsBotTest.xml`
 to specify:
 
 * `mmi2grpc`: the path to your local `mmi2grpc` repository.

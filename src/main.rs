@@ -91,10 +91,6 @@ struct Opts {
     #[structopt(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
 
-    /// All tests under this prefix will be run.
-    /// The prefix must include the profile.
-    test_prefix: String,
-
     /// HCI port
     #[structopt(short, long, default_value = "6402")]
     hci: u16,
@@ -115,6 +111,14 @@ struct Opts {
     #[structopt(short = "t", long, default_value = "60")]
     inactivity_timeout: u64,
 
+    /// PTS setup executable Path
+    #[structopt(long, parse(from_os_str))]
+    pts_setup: Option<PathBuf>,
+
+    /// All tests under this prefix will be run.
+    /// The prefix must include the profile.
+    test_prefix: String,
+
     /// IUT parameters
     args: Vec<String>,
 }
@@ -129,16 +133,23 @@ pub fn split_once<'a, 'b>(s: &'a str, separator: &'b str) -> Option<(&'a str, &'
 fn main() -> Result<()> {
     let opts = Opts::from_args();
 
-    let mut config = dirs::config_dir().context("Failed to get config dir")?;
-    config.push("pts");
+    let installer = opts
+        .pts_setup
+        .as_ref()
+        .map(|path| File::open(path).context("Installer not found"))
+        .unwrap_or_else(|| {
+            // Load default from config dir
+            let mut config = dirs::config_dir().context("Failed to get config dir")?;
+            config.push("pts");
 
-    let installer = File::open(config.join("pts_setup_8_0_3.exe")).with_context(|| {
-        format!(
-            "Installer (pts_setup_8_0_3.exe) not found in {}, {}",
-            config.display(),
-            "download it from the SIG website and add it",
-        )
-    })?;
+            File::open(config.join("pts_setup_8_0_3.exe")).with_context(|| {
+                format!(
+                    "Installer (pts_setup_8_0_3.exe) not found in {}, {}",
+                    config.display(),
+                    "download it from the SIG website and add it",
+                )
+            })
+        })?;
 
     let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
     cache.push("pts");

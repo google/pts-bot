@@ -46,6 +46,8 @@ static bool __cdecl on_use_auto_implicit_send(void) {
 	return true;
 }
 
+#define MMI_STYLE_OK_CANCEL_2 (0x11141)
+
 static char * __cdecl on_implicit_send(char *description, UINT style) {
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"implicit_send\", \"description\": \"");
@@ -56,10 +58,28 @@ static char * __cdecl on_implicit_send(char *description, UINT style) {
 	char *answer = NULL;
 	size_t n = 0;
 
-	if (getline(&answer, &n, stdin) == -1) {
-		fprintf(stderr, "getline failed\n");
-		exit(1);
+	static unsigned to_skip = 0;
+
+	/* From Implicit_Send_8.0.3.pdf 3.4 MMI styles
+	 *
+	 * Note: When ImplicitSendStyle() is called with style MMI_Style_Ok_Cancel2,
+	 * implementation may signal the IUT the requested action after the message tag is
+	 * identified but it should not block in the function. Otherwise, it may block PTS from progressing.
+	 * Implementation should always return “OK”.
+	 */
+	if (style == MMI_STYLE_OK_CANCEL_2) {
+		to_skip++;
+		return "OK";
 	}
+
+	/* Skip all the answer that we ignored and read one more answer */
+	for (unsigned i = 0; i < to_skip + 1; i++) {
+		if (getline(&answer, &n, stdin) == -1) {
+			fprintf(stderr, "getline failed\n");
+			exit(1);
+		}
+	}
+	to_skip = 0;
 
 	return answer;
 }

@@ -10,7 +10,7 @@ use std::task::Poll;
 
 use anyhow::{Context, Error, Result};
 use dirs;
-use libpts::{logger, BdAddr, Interaction, HCI, PTS};
+use libpts::{final_verdict, logger, map_with_stack, BdAddr, Interaction, HCI, PTS};
 use serde::Deserialize;
 use serde_json;
 use structopt::StructOpt;
@@ -250,7 +250,14 @@ fn main() -> Result<()> {
                     )
                     .await;
 
-                let result: Result<test::TestResult> = logger::print(&mut stdout(), events)
+                let events = map_with_stack(events, |result| {
+                    result.map(|(event, stack)| {
+                        logger::print(&mut stdout(), &event, stack).unwrap();
+                        event
+                    })
+                });
+
+                let result: Result<test::TestResult> = final_verdict(events)
                     .await
                     .context("Runtime Error")
                     .try_into();

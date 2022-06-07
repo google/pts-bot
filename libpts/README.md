@@ -11,7 +11,7 @@ libPTS library runs test suites from the [Bluetooth SIG Profile Tuning Suite (PT
 
 libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to run
 ```
-sudo apt install bazel wine
+sudo apt install bazel wine wine32-tools
 ```
 
 ## Snippets

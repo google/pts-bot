@@ -23,6 +23,14 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
 
     io::copy(&mut installer_src, &mut installer_dst).expect("Write Installer");
 
+    // Remove dir if it exists before recreating it
+    match fs::remove_dir_all(&tmp) {
+        // Ignore NotFound error as this mean the directory already don't exist
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        v => v,
+    }
+    .expect("Remove dir");
+
     fs::create_dir(&tmp).expect("Create dir");
 
     // TODO: check status

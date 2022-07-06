@@ -311,7 +311,14 @@ pub fn parse<E>(
             name: description,
             values: None,
         })),
-        Ok(_) => None,
+        Ok(Message::Raw(line)) => Some(Ok(Event {
+            kind: EventKind::Log,
+            time: None,
+            number: None,
+            name: line,
+            values: None,
+        })),
+        Ok(Message::Addr { .. }) => None,
         Err(e) => Some(Err(e)),
     })
 }

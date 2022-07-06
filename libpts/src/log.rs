@@ -30,6 +30,7 @@ pub enum EventKind {
     MatchFailed,
     Timer(TimerEvent),
     Error,
+    ManMachineInterface,
     Ignored,
 }
 
@@ -248,10 +249,16 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
             name: message.to_owned(),
             values: None,
         },
+        LogType::ImplicitSend => Event {
+            kind: EventKind::ManMachineInterface,
+            time: None,
+            number: None,
+            name: message.to_owned(),
+            values: None,
+        },
         LogType::CoordinationMessage
         | LogType::StartDefault
         | LogType::DefaultEnded
-        | LogType::ImplicitSend
         | LogType::Goto
         | LogType::Error
         | LogType::Create
@@ -297,6 +304,13 @@ pub fn parse<E>(
                 ..parse_log_message(logtype, message)
             }))
         }
+        Ok(Message::ImplicitSend { description, .. }) => Some(Ok(Event {
+            kind: EventKind::ManMachineInterface,
+            time: None,
+            number: None,
+            name: description,
+            values: None,
+        })),
         Ok(_) => None,
         Err(e) => Some(Err(e)),
     })

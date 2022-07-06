@@ -34,6 +34,7 @@ fn kind_name(kind: &EventKind) -> &'static str {
         EventKind::MatchFailed => "Match",
         EventKind::Timer(_) => "Timer",
         EventKind::Error => "Error",
+        EventKind::ManMachineInterface => "MMI",
         EventKind::Ignored => "Ignored",
     }
 }
@@ -53,6 +54,7 @@ fn kind_color(kind: &EventKind) -> (&'static dyn color::Color, &'static dyn colo
         EventKind::MatchFailed => (&color::LightWhite, &color::Yellow),
         EventKind::Timer(_) => (&color::Cyan, &color::LightWhite),
         EventKind::Error => (&color::LightWhite, &color::Red),
+        EventKind::ManMachineInterface => (&color::LightWhite, &color::Yellow),
         EventKind::Ignored => (&color::LightBlack, &color::LightWhite),
     }
 }
@@ -98,6 +100,9 @@ fn print_multiline(to: &mut impl Write, kind: &EventKind, data: &str) -> io::Res
         if index != 0 {
             writeln!(to)?;
             print_header(to, None, "", kind, false)?;
+        }
+        if *kind == EventKind::ManMachineInterface {
+            write!(to, "{}{}", style::Bold, color::Fg(color::LightYellow))?;
         }
         write!(to, "{}", line)?;
     }

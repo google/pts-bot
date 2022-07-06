@@ -49,7 +49,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 struct WineServer(Child);
 
 pub struct Wine {
-    server: WineServer,
+    _server: WineServer,
     prefix: PathBuf,
 }
 
@@ -108,7 +108,10 @@ impl Wine {
             .map_err(Error::Server)?;
 
         // Wrap the server as soon as possible to drop it properly
-        let wine = Wine { server, prefix };
+        let wine = Wine {
+            _server: server,
+            prefix,
+        };
 
         let metadata = fs::metadata(&wine.prefix).map_err(Error::Prefix)?;
 

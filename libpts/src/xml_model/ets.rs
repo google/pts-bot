@@ -10,37 +10,37 @@ use super::XMLModel;
 #[derive(Debug, Deserialize)]
 pub struct Ets {
     #[serde(rename = "ETSVersion")]
-    version: Option<String>,
+    pub version: Option<String>,
     #[serde(rename = "Profile")]
-    profile: Profile,
+    pub profile: Profile,
 }
 
 #[derive(Debug, Deserialize)]
-struct Profile {
+pub struct Profile {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Group", default)]
-    groups: Vec<Group>,
+    pub groups: Vec<Group>,
 }
 
 #[derive(Debug, Deserialize)]
-struct Group {
+pub struct Group {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Group", default)]
-    groups: Vec<Group>,
+    pub groups: Vec<Group>,
     #[serde(rename = "TestCase", default)]
-    testcases: Vec<TestCase>,
+    pub testcases: Vec<TestCase>,
 }
 
 #[derive(Debug, Deserialize)]
-struct TestCase {
+pub struct TestCase {
     #[serde(rename = "Name")]
-    name: String,
+    pub name: String,
     #[serde(rename = "Mapping", default)]
-    mapping: String,
+    pub mapping: String,
     #[serde(rename = "Description", default)]
-    description: String,
+    pub description: String,
 }
 
 impl TestCase {

@@ -332,8 +332,17 @@ pub fn map_with_stack<E, R>(
             match event.kind {
                 EventKind::EnterStep => stack.push(event.name.clone()),
                 EventKind::ExitStep => {
-                    let name = stack.pop();
-                    assert_eq!(name.as_ref(), Some(&event.name));
+                    // Exit of steps are not always stacked with enters,
+                    // e.g. Enter A, Enter B, Exit A, Exit B
+                    // instead of Enter A, Enter B, Exit B, Exit A
+                    // So we need to search in the whole stack
+                    // which step should be removed.
+                    // This happens notably with AVRCP test suite
+                    let index = stack
+                        .iter()
+                        .rposition(|name| name == &event.name)
+                        .expect("Step was not entered");
+                    stack.remove(index);
                 }
                 _ => {}
             }

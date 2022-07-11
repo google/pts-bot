@@ -9,9 +9,9 @@ libPTS library runs test suites from the [Bluetooth SIG Profile Tuning Suite (PT
 
 ### Prerequisites
 
-libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine to run
+libPTS uses [Bazel](https://bazel.build/) as it's build system and need wine, cabextract and xvfb to run
 ```
-sudo apt install bazel wine wine32-tools
+sudo apt install bazel wine wine32-tools cabextract xvfb
 ```
 
 ## Snippets

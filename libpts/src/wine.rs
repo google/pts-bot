@@ -123,6 +123,9 @@ impl Wine {
         );
 
         // Wine on Debian is patched to change the wineserver directory
+        // /!\ If this repository does not exist yet, wineserver will default
+        // to using a randomly generated directory with the path
+        // '/tmp/wine-${random}/'.
         let debian_directory = format!(
             "/run/user/{}/wine/server-{:x}-{:x}",
             metadata.uid(),
@@ -136,8 +139,10 @@ impl Wine {
             thread::sleep(Duration::from_millis(100));
         }
 
+        // The installer can fail if wineboot.exe is not executed
+        // with an X display.
         let status = wine
-            .command("wineboot.exe", false, None)
+            .command("wineboot.exe", true, None)
             .env("WINEARCH", &arch)
             .status()
             .map_err(Error::Boot)?;

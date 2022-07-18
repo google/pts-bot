@@ -66,6 +66,10 @@ fn charstring(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
 }
 
+fn double_charstring(input: &str) -> IResult<&str, &str> {
+    delimited(tag("\"\""), take_until("\"\""), tag("\"\""))(input)
+}
+
 fn special_string(input: &str) -> IResult<&str, TTCNValue> {
     let (input, string) = delimited(char('\''), take_until("'"), char('\''))(input)?;
 
@@ -121,6 +125,9 @@ fn value(input: &str) -> IResult<&str, TTCNValue> {
             map(array, TTCNValue::Array),
             map(integer, |s| TTCNValue::Integer(String::from(s))),
             map(at_charstring, |s| TTCNValue::CharString(String::from(s))),
+            map(double_charstring, |s| {
+                TTCNValue::CharString(String::from(s))
+            }),
             map(charstring, |s| TTCNValue::CharString(String::from(s))),
             special_string,
             map(char('?'), |_| TTCNValue::AnyValue),
@@ -369,5 +376,37 @@ mod test {
     fn test_parse_comma_space() {
         let result = parse_list("   ");
         assert_eq!(result, Ok(("", vec![])));
+    }
+
+    #[test]
+    fn test_double_charstring() {
+        assert_eq!(
+            parse(r#"""hello world"""#),
+            Ok(("", TTCNValue::CharString("hello world".to_owned())))
+        );
+    }
+
+    #[test]
+    fn test_bug_239266788() {
+        let value = r#"[
+                           ,
+                           ""+15551234567"",
+                           "145",
+                           ,
+                           "4"
+                           ]"#;
+        assert_eq!(
+            parse(value),
+            Ok((
+                "",
+                TTCNValue::Array(vec![
+                    TTCNValue::Empty,
+                    TTCNValue::CharString("+15551234567".to_owned()),
+                    TTCNValue::CharString("145".to_owned()),
+                    TTCNValue::Empty,
+                    TTCNValue::CharString("4".to_owned())
+                ])
+            ))
+        );
     }
 }

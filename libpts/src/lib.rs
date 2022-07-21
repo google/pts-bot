@@ -191,7 +191,7 @@ impl<'pts> Profile<'pts> {
                 .then(identity)
                 .filter_map(Result::transpose));
 
-        let mut pts_addr = messages
+        let pts_addr_result = messages
             .find_map(|message| match message {
                 Ok(Message::Addr { value }) => Some(Ok(value)),
                 Err(e) => Some(Err(e)),
@@ -199,12 +199,25 @@ impl<'pts> Profile<'pts> {
             })
             .await
             .ok_or(RunError::NoAddress)
-            .and_then(identity)
-            .map_err(|e| stream::once(Err(e)));
+            .and_then(identity);
+
+        let test_started_interaction = if let Ok(pts_addr) = pts_addr_result {
+            Some(Interaction {
+                pts_addr,
+                style: MMIStyle::Ok,
+                description: format!("{{test_started,{},{}}}", test, self.name),
+            })
+        } else {
+            None
+        };
 
         let (tx, rx) = async_channel::unbounded();
 
         let answers = async move {
+            if let Some(interaction) = test_started_interaction {
+                interact(interaction).await.map_err(RunError::Interact)?;
+            }
+
             while let Ok(interaction) = rx.recv().await {
                 let answer = interact(interaction).await.map_err(RunError::Interact)?;
                 send_answer(&*answer);
@@ -214,7 +227,9 @@ impl<'pts> Profile<'pts> {
 
         let mut timeout = async_io::Timer::after(Duration::from_secs(inactivity_timeout));
 
-        let messages = stream::poll_fn(move |cx| match pts_addr {
+        let mut pts_addr_stream = pts_addr_result.map_err(|e| stream::once(Err(e)));
+
+        let messages = stream::poll_fn(move |cx| match pts_addr_stream {
             Ok(pts_addr) => {
                 let message = messages.poll_next(cx);
                 if let Poll::Ready(message) = message {

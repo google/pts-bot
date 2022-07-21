@@ -27,6 +27,13 @@ mod test {
             )),
         );
     }
+    #[test]
+    fn test_parse_without_description() {
+        assert_eq!(
+            parse("{test_started,foo,bar}"),
+            Some(("test_started", "foo", "bar", "")),
+        );
+    }
 
     #[test]
     fn test_id_to_mmi() {

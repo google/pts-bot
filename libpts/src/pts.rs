@@ -128,7 +128,8 @@ impl<'wine> Server<'wine> {
                 })
             }),
             move |answer| {
-                writeln!(self.0.stdin.as_mut().unwrap(), "{}", answer).unwrap();
+                // TODO(b/239749174): Handle result
+                let _ = writeln!(self.0.stdin.as_mut().unwrap(), "{}", answer);
             },
         )
     }

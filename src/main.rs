@@ -123,13 +123,6 @@ struct Opts {
     args: Vec<String>,
 }
 
-// FIXME: Use str.split_once when gLinux rustc version >= 1.52.0
-pub fn split_once<'a, 'b>(s: &'a str, separator: &'b str) -> Option<(&'a str, &'a str)> {
-    let start = s.find(separator)?;
-    let end = start + separator.len();
-    Some((&s[..start], &s[end..]))
-}
-
 fn main() -> Result<()> {
     let opts = Opts::from_args();
 
@@ -157,7 +150,9 @@ fn main() -> Result<()> {
     let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
     let mut skip = HashSet::new();
 
-    let profile_name = split_once(&opts.test_prefix, "/")
+    let profile_name = opts
+        .test_prefix
+        .split_once("/")
         .map(|(profile, _)| profile)
         .unwrap_or(&*opts.test_prefix);
     let iut_name: &str = &*opts.iut;

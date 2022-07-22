@@ -1,4 +1,3 @@
-use crate::compat::split_once;
 use crate::pts::{LogType, Message};
 use crate::ttcn;
 
@@ -89,7 +88,7 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
             }
         }
         LogType::SendEvent => {
-            if let Some((name, pdu)) = split_once(message, "=PDU:") {
+            if let Some((name, pdu)) = message.split_once("=PDU:") {
                 let (input, value) = ttcn::parse(pdu).unwrap();
                 assert!(input.is_empty());
 
@@ -113,7 +112,7 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
             }
         }
         LogType::ReceiveEvent => {
-            if let Some((name, pdu)) = split_once(message, "=PDU:") {
+            if let Some((name, pdu)) = message.split_once("=PDU:") {
                 let (input, value) = ttcn::parse(pdu).unwrap();
                 assert!(input.is_empty());
 
@@ -137,7 +136,7 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
             }
         }
         LogType::Assignment => {
-            if let Some((name, value)) = split_once(message, ":=") {
+            if let Some((name, value)) = message.split_once(":=") {
                 let (input, value) = ttcn::parse(value).unwrap();
                 assert!(input.is_empty());
 

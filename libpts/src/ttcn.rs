@@ -66,8 +66,23 @@ fn charstring(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
 }
 
-fn double_charstring(input: &str) -> IResult<&str, &str> {
-    delimited(tag("\"\""), take_until("\"\""), tag("\"\""))(input)
+fn smart_charstring(input: &str) -> IResult<&str, &str> {
+    let (input, _) = char('"')(input)?;
+
+    for (i, c) in input.char_indices() {
+        if c == '"' {
+            let trimmed = input[i + 1..].trim_start();
+
+            if trimmed.starts_with(',') || trimmed.is_empty() {
+                return Ok((&input[i + 1..], &input[..i]));
+            }
+        }
+    }
+
+    Err(nom::Err::Error(nom::error::Error::new(
+        input,
+        nom::error::ErrorKind::Fail,
+    )))
 }
 
 fn special_string(input: &str) -> IResult<&str, TTCNValue> {
@@ -125,9 +140,7 @@ fn value(input: &str) -> IResult<&str, TTCNValue> {
             map(array, TTCNValue::Array),
             map(integer, |s| TTCNValue::Integer(String::from(s))),
             map(at_charstring, |s| TTCNValue::CharString(String::from(s))),
-            map(double_charstring, |s| {
-                TTCNValue::CharString(String::from(s))
-            }),
+            map(smart_charstring, |s| TTCNValue::CharString(String::from(s))),
             map(charstring, |s| TTCNValue::CharString(String::from(s))),
             special_string,
             map(char('?'), |_| TTCNValue::AnyValue),
@@ -382,7 +395,7 @@ mod test {
     fn test_double_charstring() {
         assert_eq!(
             parse(r#"""hello world"""#),
-            Ok(("", TTCNValue::CharString("hello world".to_owned())))
+            Ok(("", TTCNValue::CharString("\"hello world\"".to_owned())))
         );
     }
 
@@ -391,6 +404,7 @@ mod test {
         let value = r#"[
                            ,
                            ""+15551234567"",
+                           ""+15551234567",
                            "145",
                            ,
                            "4"
@@ -401,7 +415,8 @@ mod test {
                 "",
                 TTCNValue::Array(vec![
                     TTCNValue::Empty,
-                    TTCNValue::CharString("+15551234567".to_owned()),
+                    TTCNValue::CharString("\"+15551234567\"".to_owned()),
+                    TTCNValue::CharString("\"+15551234567".to_owned()),
                     TTCNValue::CharString("145".to_owned()),
                     TTCNValue::Empty,
                     TTCNValue::CharString("4".to_owned())

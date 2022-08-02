@@ -178,6 +178,7 @@ impl Wine {
     ) -> Command {
         let mut command = if with_graphics {
             let mut command = Command::new("xvfb-run");
+            command.arg("--auto-servernum");
             command.arg("wine");
             command
         } else {

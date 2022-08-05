@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
@@ -213,20 +214,28 @@ fn main() -> Result<()> {
 
             async move {
                 let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args, &*test)?);
+                let timeout = async_io::Timer::after(Duration::from_secs(inactivity_timeout));
 
                 let addr = {
                     let iut = iut.clone();
-                    unblock(move || -> Result<BdAddr> {
-                        println!("Resetting IUT ...");
-                        iut.enter()?;
 
-                        println!("Reading local address ...");
-                        Ok(BdAddr::new(
-                            iut.address()?
-                                .try_into()
-                                .map_err(|_| Error::msg("Invalid address size"))?,
-                        ))
-                    })
+                    future::or(
+                        unblock(move || -> Result<BdAddr> {
+                            println!("Resetting IUT ...");
+                            iut.enter()?;
+
+                            println!("Reading local address ...");
+                            Ok(BdAddr::new(
+                                iut.address()?
+                                    .try_into()
+                                    .map_err(|_| Error::msg("Invalid address size"))?,
+                            ))
+                        }),
+                        async {
+                            timeout.await;
+                            anyhow::bail!("Timeout in IUT initialization")
+                        },
+                    )
                     .await?
                 };
 

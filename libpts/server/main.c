@@ -5,11 +5,43 @@
 
 #include "ETSManager.h"
 
-
 pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t test_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static void json_escape(const char *string) {
+static wchar_t cp1252_to_unicode(char c) {
+	switch ((unsigned char)c) {
+		case 0x80: return 0x20AC; // EURO SIGN
+		case 0x82: return 0x201A; // SINGLE LOW-9 QUOTATION MARK
+		case 0x83: return 0x0192; // LATIN SMALL LETTER F WITH HOOK
+		case 0x84: return 0x201E; // DOUBLE LOW-9 QUOTATION MARK
+		case 0x85: return 0x2026; // HORIZONTAL ELLIPSIS
+		case 0x86: return 0x2020; // DAGGER
+		case 0x87: return 0x2021; // DOUBLE DAGGER
+		case 0x88: return 0x02C6; // MODIFIER LETTER CIRCUMFLEX ACCENT
+		case 0x89: return 0x2030; // PER MILLE SIGN
+		case 0x8A: return 0x0160; // LATIN CAPITAL LETTER S WITH CARON
+		case 0x8B: return 0x2039; // SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+		case 0x8C: return 0x0152; // LATIN CAPITAL LIGATURE OE
+		case 0x8E: return 0x017D; // LATIN CAPITAL LETTER Z WITH CARON
+		case 0x91: return 0x2018; // LEFT SINGLE QUOTATION MARK
+		case 0x92: return 0x2019; // RIGHT SINGLE QUOTATION MARK
+		case 0x93: return 0x201C; // LEFT DOUBLE QUOTATION MARK
+		case 0x94: return 0x201D; // RIGHT DOUBLE QUOTATION MARK
+		case 0x95: return 0x2022; // BULLET
+		case 0x96: return 0x2013; // EN DASH
+		case 0x97: return 0x2014; // EM DASH
+		case 0x98: return 0x02DC; // SMALL TILDE
+		case 0x99: return 0x2122; // TRADE MARK SIGN
+		case 0x9A: return 0x0161; // LATIN SMALL LETTER S WITH CARON
+		case 0x9B: return 0x203A; // SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+		case 0x9C: return 0x0153; // LATIN SMALL LIGATURE OE
+		case 0x9E: return 0x017E; // LATIN SMALL LETTER Z WITH CARON
+		case 0x9F: return 0x0178; // LATIN CAPITAL LETTER Y WITH DIAERESIS
+		default: return c;
+	}
+}
+
+static void json_escape_cp1252(const char *string) {
 	for (size_t i = 0; string[i] != '\0'; i++) {
 		switch (string[i]) {
 		case '"': printf("\\\""); break;
@@ -23,7 +55,7 @@ static void json_escape(const char *string) {
 			if ('\x00' <= string[i] && string[i] <= '\x1f') {
 				printf("\\u%04x", string[i]);
 			} else {
-				printf("%c", string[i]);
+				printf("%lc", cp1252_to_unicode(string[i]));
 			}
 		}
 	}
@@ -51,7 +83,7 @@ static bool __cdecl on_use_auto_implicit_send(void) {
 static char * __cdecl on_implicit_send(char *description, UINT style) {
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"implicit_send\", \"description\": \"");
-	json_escape(description);
+	json_escape_cp1252(description);
 	printf("\", \"style\": %u}\n", style);
 	pthread_mutex_unlock(&stdout_mutex);
 
@@ -91,11 +123,11 @@ static bool __stdcall on_log(const char *time, const char *description, const ch
 
 	pthread_mutex_lock(&stdout_mutex);
 	printf("{\"type\": \"log\", \"time\": \"");
-	json_escape(time);
+	json_escape_cp1252(time);
 	printf("\", \"description\": \"");
-	json_escape(description);
+	json_escape_cp1252(description);
 	printf("\", \"message\": \"");
-	json_escape(message);
+	json_escape_cp1252(message);
 	printf("\", \"logtype\": %d}\n", type);
 	pthread_mutex_unlock(&stdout_mutex);
 

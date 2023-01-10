@@ -58,7 +58,8 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
                     values: Some(vec![]),
                 },
                 [":", number, "Enter", "Test", "Step", step, "(", .., ")"]
-                | ["A:", number, "Enter", "Test", "Step", step, "(", .., ")"] => {
+                | ["A:", number, "Enter", "Test", "Step", step, "(", .., ")"]
+                | ["B:", number, "Enter", "Test", "Step", step, "(", .., ")"] => {
                     let index = split[0..7].iter().map(|s| s.len()).sum::<usize>() + 7;
                     let input = &message[index..message.len() - 1];
 
@@ -74,7 +75,8 @@ fn parse_log_message(logtype: LogType, message: String) -> Event {
                     }
                 }
                 [":", number, "Exit", "", "Test", "Step", "", step]
-                | ["A:", number, "Exit", "", "Test", "Step", "", step] => Event {
+                | ["A:", number, "Exit", "", "Test", "Step", "", step]
+                | ["B:", number, "Exit", "", "Test", "Step", "", step] => Event {
                     kind: EventKind::ExitStep,
                     time: None,
                     number: Some(number.to_owned()),

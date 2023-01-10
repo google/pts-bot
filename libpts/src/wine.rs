@@ -73,6 +73,39 @@ const ALSA_CONFIG_FILE: &str = r#"pcm.!default {
     format "wav"
 }"#;
 
+fn wineserver_socket_exists(metadata: &fs::Metadata) -> bool {
+    let socket = format!("server-{:x}-{:x}", metadata.dev(), metadata.ino());
+
+    // upstream wine
+    let directory = format!("/tmp/.wine-{}/{}", metadata.uid(), &socket);
+
+    if Path::new(&directory).exists() {
+        return true;
+    }
+
+    // Wine on Debian
+    let directory = format!("/run/user/{}/wine/{}", metadata.uid(), &socket);
+
+    if Path::new(&directory).exists() {
+        return true;
+    }
+
+    // Wine on ubuntu uses /tmp/wine-${random}/
+    // if /run/user/${uid} doesn't exist
+
+    fs::read_dir("/tmp")
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .map_or(false, |file_name| file_name.starts_with("wine-"))
+        })
+        .any(|entry| entry.path().join(&socket).exists())
+}
+
 impl Wine {
     pub fn spawn(prefix: PathBuf, arch: WineArch) -> Result<Self> {
         let create_prefix = !prefix.exists();
@@ -115,27 +148,7 @@ impl Wine {
 
         let metadata = fs::metadata(&wine.prefix).map_err(Error::Prefix)?;
 
-        let directory = format!(
-            "/tmp/.wine-{}/server-{:x}-{:x}",
-            metadata.uid(),
-            metadata.dev(),
-            metadata.ino()
-        );
-
-        // Wine on Debian is patched to change the wineserver directory
-        // /!\ If this repository does not exist yet, wineserver will default
-        // to using a randomly generated directory with the path
-        // '/tmp/wine-${random}/'.
-        let debian_directory = format!(
-            "/run/user/{}/wine/server-{:x}-{:x}",
-            metadata.uid(),
-            metadata.dev(),
-            metadata.ino()
-        );
-
-        let path = Path::new(&directory);
-        let debian_path = Path::new(&debian_directory);
-        while !path.exists() && !debian_path.exists() {
+        while !wineserver_socket_exists(&metadata) {
             thread::sleep(Duration::from_millis(100));
         }
 

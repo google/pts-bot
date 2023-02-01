@@ -9,8 +9,8 @@ git submodules update --init
 cargo build
 ```
 
-## Build for Ubuntu 18.04
+## Build for Ubuntu 22.04
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -f script/build-ubuntu-18.04 -o out .
+DOCKER_BUILDKIT=1 docker build -f script/build-ubuntu-22.04 -o out .
 ```

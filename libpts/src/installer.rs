@@ -8,10 +8,6 @@ const SERVER: &[u8] = include_bytes!(env!("SERVER_PATH"));
 
 pub const PTS_PATH: &str = "pts";
 
-// Directory name where the installer extract his
-// files with the `/extract` flag
-const INSTALLER_EXTRACT_DIR: &str = "BE36A8D";
-
 pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
     let drive_c = wine.drive_c();
     let installer = drive_c.join("installer.exe");
@@ -40,6 +36,25 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
         .status()
         .expect("Installer");
 
+    // Find the directory name where the installer extract his
+    // files with the `/extract` flag. The directory changes based
+    // on the installer version but matches [0-9A-F]{7}.
+    let installer_extract_dir: String = fs::read_dir(&tmp)
+        .unwrap()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let file_name = entry.file_name().into_string().ok()?;
+            let file_type = entry.file_type().ok()?;
+            (file_type.is_dir()
+                && file_name.len() == 7
+                && file_name
+                    .chars()
+                    .all(|c| matches!(c, '0'..='9' | 'A'..='F')))
+            .then(|| file_name)
+        })
+        .next()
+        .expect("Failed to find the installer extract dir");
+
     // TODO: check status
     Command::new("cabextract")
         .current_dir(&tmp)
@@ -58,7 +73,7 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
 
     fs::rename(tmp.join("nosxs_mfc90.dll"), system32.join("mfc90.dll")).expect("Rename failed");
 
-    fs::rename(tmp.join(INSTALLER_EXTRACT_DIR), &pts).expect("Rename failed");
+    fs::rename(tmp.join(&installer_extract_dir), &pts).expect("Rename failed");
 
     fs::remove_dir_all(tmp).expect("Remove failed");
 

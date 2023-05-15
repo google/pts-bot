@@ -110,7 +110,7 @@ fn print_multiline(to: &mut impl Write, kind: &EventKind, data: &str) -> io::Res
 }
 
 pub fn print(to: &mut impl Write, event: &Event, stack: &[String]) -> io::Result<()> {
-    let step = stack.last().map(|last| last as &str).unwrap_or(&"");
+    let step = stack.last().map(|last| last as &str).unwrap_or("");
 
     print_header(to, event.time, step, &event.kind, true)?;
 
@@ -118,7 +118,7 @@ pub fn print(to: &mut impl Write, event: &Event, stack: &[String]) -> io::Result
         write!(to, "{:?} ", event)?;
     }
 
-    print_multiline(to, &event.kind, &*event.name)?;
+    print_multiline(to, &event.kind, &event.name)?;
 
     match event.kind {
         EventKind::Assign => write!(to, " :=")?,
@@ -136,7 +136,7 @@ pub fn print(to: &mut impl Write, event: &Event, stack: &[String]) -> io::Result
             if index != 0 {
                 write!(to, ", ")?;
             }
-            print_multiline(to, &event.kind, &*format!("{}", argument))?;
+            print_multiline(to, &event.kind, &format!("{}", argument))?;
         }
         if event.kind == EventKind::EnterStep {
             write!(to, ")")?;

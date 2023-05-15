@@ -112,12 +112,12 @@ impl Wine {
 
         if create_prefix {
             fs::create_dir_all(&prefix)
-                .and_then(|_| fs::create_dir(&prefix.join("drive_c")))
-                .and_then(|_| fs::create_dir(&prefix.join("dosdevices")))
-                .and_then(|_| unix::fs::symlink("../drive_c", &prefix.join("dosdevices/c:")))
+                .and_then(|_| fs::create_dir(prefix.join("drive_c")))
+                .and_then(|_| fs::create_dir(prefix.join("dosdevices")))
+                .and_then(|_| unix::fs::symlink("../drive_c", prefix.join("dosdevices/c:")))
                 // See command function
-                .and_then(|_| fs::write(&prefix.join("fonts.conf"), EMPTY_FONTCONFIG_FILE))
-                .and_then(|_| fs::write(&prefix.join("alsa.conf"), ALSA_CONFIG_FILE))
+                .and_then(|_| fs::write(prefix.join("fonts.conf"), EMPTY_FONTCONFIG_FILE))
+                .and_then(|_| fs::write(prefix.join("alsa.conf"), ALSA_CONFIG_FILE))
                 .map_err(|source| {
                     let _ = fs::remove_dir_all(&prefix);
                     Error::Prefix(source)

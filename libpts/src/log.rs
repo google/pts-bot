@@ -295,7 +295,7 @@ pub fn parse<E>(
                 assert_eq!(&time[0..1], "+");
                 assert_eq!(&time[time.len() - 3..], " ms");
 
-                (&time[1..time.len() - 3]).parse::<u32>().ok()
+                (time[1..time.len() - 3]).parse::<u32>().ok()
             } else {
                 None
             };

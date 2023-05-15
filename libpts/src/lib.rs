@@ -250,7 +250,7 @@ impl<'pts> Profile<'pts> {
                         }
                         x => x,
                     })
-                } else if let Poll::Ready(_) = timeout.poll(cx) {
+                } else if timeout.poll(cx).is_ready() {
                     Poll::Ready(Some(Err(RunError::Timeout)))
                 } else {
                     Poll::Pending

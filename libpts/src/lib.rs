@@ -113,12 +113,12 @@ impl PTS {
         self.ixit.insert(name.to_owned(), value.to_owned());
     }
 
-    pub fn profile(&self, name: &str) -> Option<Profile<'_>> {
-        let ets = Ets::parse(name, &self.wine).ok()?;
-        let pics = Pics::parse(name, &self.wine).ok()?;
-        let pixit = Pixit::parse(name, &self.wine).ok()?;
+    pub fn profile(&self, name: &str) -> Result<Profile<'_>, xml_model::Error> {
+        let ets = Ets::parse(name, &self.wine)?;
+        let pics = Pics::parse(name, &self.wine)?;
+        let pixit = Pixit::parse(name, &self.wine)?;
 
-        Some(Profile {
+        Ok(Profile {
             pts: self,
             name: name.to_owned(),
             ets,
@@ -175,7 +175,7 @@ impl<'pts> Profile<'pts> {
             "TSPX_delete_link_key" => ("TSPX_delete_link_key", "BOOLEAN", "TRUE"),
             _ => {
                 let value = self.pts.ixit.get(&row.name).unwrap_or(&row.value);
-                (&*row.name, &*row.value_type, &**value)
+                (&*row.name, &*row.value_type[0], &**value)
             }
         });
 

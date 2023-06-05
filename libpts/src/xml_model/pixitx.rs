@@ -24,8 +24,10 @@ pub struct Row {
     pub name: String,
     #[serde(rename = "Description")]
     pub description: String,
+    // GAP.pixitx contains entries with duplicates
+    // of the <Type> entrie.
     #[serde(rename = "Type")]
-    pub value_type: String,
+    pub value_type: Vec<String>,
     #[serde(rename = "Value")]
     pub value: String,
 }
@@ -71,7 +73,7 @@ mod test {
             description: String::from(
                 "Whether security is required for establishing connections. (Default: FALSE)",
             ),
-            value_type: String::from("BOOLEAN"),
+            value_type: vec![String::from("BOOLEAN")],
             value: String::from("FALSE"),
         };
         assert_eq!(pixitx.rows.rows.get(0), Some(&row));
@@ -107,13 +109,13 @@ mod test {
             description: String::from(
                 "Whether security is required for establishing connections. (Default: FALSE)",
             ),
-            value_type: String::from("BOOLEAN"),
+            value_type: vec![String::from("BOOLEAN")],
             value: String::from("FALSE"),
         };
         let row1: Row = Row {
             name: String::from("TSPX_bd_addr_iut"),
             description: String::from("The unique 48-bit Bluetooth device address (BD_ADDR) of the IUT. This was filled in during workspace creation."),
-            value_type: String::from("OCTETSTRING"),
+            value_type: vec![String::from("OCTETSTRING")],
             value: String::from("000272406FAC"),
         };
         assert_eq!(pixitx.rows.rows.get(0), Some(&row));

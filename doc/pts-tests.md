@@ -1,6 +1,3 @@
-Project: /pandora/_project.yaml
-Book: /pandora/_book.yaml
-
 # Understand PTS tests
 
 PTS Test Cases for a Bluetooth profile/protocol are described in its
@@ -22,12 +19,12 @@ requirements only). This statement is called an Implementation Conformance
 Statement (ICS) and is provided in the form of a questionnaire completed by the
 implementer.
 
-For instance, the latest ICS for the Fluoride stack can be found [here](
-https://launchstudio.bluetooth.com/ListingDetails/13841).
+For example, the latest ICS for the Fluoride stack can be found at
+https://launchstudio.bluetooth.com/ListingDetails/13841.
 
-A new ICS can be computed for a profile being implemented using [Launch Studio](
-https://www.bluetooth.com/develop-with-bluetooth/build/test-tools/launch-studio/).
-This requires a [Bluetooth SIG account](http://go/bt-sig-membership)).
+A new ICS can be computed for a profile being implemented using
+[Launch Studio][launch-studio]. This requires a
+[Bluetooth SIG account](http://go/bt-sig-membership)).
 
 ## Test Suite (TS)
 
@@ -43,9 +40,9 @@ its specification (qualification test documents tab).
 ### Test Strategy
 
 In Bluetooth testing, only the observable behavior of the implementation is
-tested, i.e., the interactions of an implementation with its environment; no
+tested; the interactions of an implementation with its environment; no
 references are made to the internal structure of the protocol implementation
-(i.e., only black-box testing is performed).
+(only black-box testing is performed).
 
 The Bluetooth Test Suites define the roles of the Lower Tester (LT) and Upper
 Tester (UT) and the role of the Implementation Under Test (IUT), where
@@ -84,17 +81,17 @@ MMI calls to gRPC calls to the test interfaces.
 ### Test Case categorization
 
 Each PTS Test Case is identified as either an interoperability Test Case or a
-conformance Test Case. These are also referred to as “-I” and “-C” tests.
+conformance Test Case. These are also referred to as "-I" and "-C" tests.
 Interoperability Test Cases refer to non-protocol-related tests or tests that
-verify end-to-end system functionality. Conformance Test Cases refer to all
+verify end-to-end system capabilities. Conformance Test Cases refer to all
 protocol-related tests.
 
-Each PTS Test Case is also identifed whether it tests:
+Each PTS Test Case is also identified whether it tests:
 
 * **A Valid Behavior (BV)**: intends to verify expected behavior as specified.
 
 * **An Invalid Behavior (BI)**: sometimes also referred to as
-  “Negative Testing”. In this testing, the IUT is exposed to values outside
+  "Negative Testing". In this testing, the IUT is exposed to values outside
   defined ranges, or to a Lower Tester that mimics protocol or profile
   behavioral aspects considered invalid or unexpected. The pass criteria in BI
   tests often require the IUT to generate applicable error responses, ignore
@@ -110,8 +107,8 @@ The columns for the TCMT are defined as follows:
 * **Item**: this is a logical expression based on specific entries from the
   associated ICS document, using the operators AND, OR, and NOT to determine
   Test Case applicability. The convention is ABRV TABLE/ROW, where ABRV is the
-  abbreviated specification name. For example, “ABRV 1/2” refers to
-  “Table 1/Row 2” in the corresponding ABRV ICS.
+  abbreviated specification name. For example, "ABRV 1/2" refers to
+  "Table 1/Row 2" in the corresponding ABRV ICS.
 
 * **Feature**: a brief, informal description of the feature being tested.
 
@@ -124,10 +121,9 @@ The columns for the TCMT are defined as follows:
 An Abstract Test Suite (ATS) is defined by an implementation-independent set of
 Test Cases.
 
-The PTS ATS for each profile/protocol can be found [here](
-https://drive.google.com/corp/drive/folders/1-7GDkVhA0am5RDvmJaqrh77dBiakvGV2?resourcekey=0-cZ4zBNiNc5CXsEKlczNXRA)
-and provides the list of Test Cases supported by the PTS. They also provide
-a list (often not complete) of their associated MMI.
+The PTS ATS for each profile/protocol can be found in
+[ATS drive folder][ats-drive] and provides the list of Test Cases supported by
+the PTS. They also provide a list (often not complete) of their associated MMI.
 
 ## Implementation Extra Information for Test (IXIT)
 
@@ -136,3 +132,7 @@ the test that is not part of the protocol or profile. The IXIT (if any) of a
 Bluetooth profile/protocol can be found on the [Bluetooth SIG website](
 https://www.bluetooth.com/specifications/specs/) next to their specification
 (qualification test documents tab).
+
+[launch-studio]: https://www.bluetooth.com/develop-with-bluetooth/build/test-tools/launch-studio/
+
+[ats-drive]: https://drive.google.com/corp/drive/folders/1-7GDkVhA0am5RDvmJaqrh77dBiakvGV2?resourcekey=0-cZ4zBNiNc5CXsEKlczNXRA

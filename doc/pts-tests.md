@@ -19,12 +19,12 @@ requirements only). This statement is called an Implementation Conformance
 Statement (ICS) and is provided in the form of a questionnaire completed by the
 implementer.
 
-For example, the latest ICS for the Fluoride stack can be found at
-https://launchstudio.bluetooth.com/ListingDetails/13841.
+For example, the latest ICS for the Fluoride stack can be found [here](
+https://launchstudio.bluetooth.com/ListingDetails/13841).
 
 A new ICS can be computed for a profile being implemented using
 [Launch Studio][launch-studio]. This requires a
-[Bluetooth SIG account](http://go/bt-sig-membership)).
+[Bluetooth SIG account](http://go/bt-sig-membership).
 
 ## Test Suite (TS)
 
@@ -71,8 +71,9 @@ on the DUT when the PTS requests them through its Man Machine Interfaces (MMIs).
 /pandora/guides/pts-bot/images/lower-upper-testers-pts.svg){: width="70%"}
 
 When using PTS-bot, the upper tester is the Pandora Bluetooth test server
-implementing the [gRPC Bluetooth test interfaces](
-/pandora/reference/doc/overview). PTS tests are automated by converting the PTS
+implementing the [Pandora APIs]
+(https://developers.google.com/pandora/guides/bt-test-interfaces/overview).
+PTS tests are automated by converting the PTS
 MMI calls to gRPC calls to the test interfaces.
 
 ![Lower and upper testers for PTS-bot](

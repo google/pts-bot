@@ -149,9 +149,32 @@ class [PROFILE]Proxy(ProfileProxy):
 
 ```
 
-Note: The `@assert_description`` asserts if the comment is not identical as
+Note: The `@assert_description` asserts if the comment is not identical as
 the official PTS mmi description. It is optional and you can remove it if your
 description contains variable values.
+
+Warning: The PTS tool expects some of the tests to be run with a specific
+physical dongle. `mmi2grpc._rootcanal` adds test bindings to `RootCanal`
+to change the configuration of the PTS controller:
+
+```python
+from mmi2grpc._rootcanal import Dongle
+
+
+class [PROFILE]Proxy(ProfileProxy):
+
+    def __init__(self, channel, rootcanal):
+        super().__init__()
+        self.[profile] = PROFILE(channel)
+        self.rootcanal = rootcanal
+
+    def test_started(self, test: str, **kwargs):
+        # Supported dongles include:
+        #  - DEFAULT (Android controller configuration)
+        #  - CSR_RCK_PTS_DONGLE (Dual, HCI 5.0)
+        #  - LAIRD_BL654 (LE only, HCI 5.4)
+        self.rootcanal.select_pts_dongle(Dongle.LAIRD_BL654)
+```
 
 #### 2. Instantiate your profile proxy [if it does not exist]
 

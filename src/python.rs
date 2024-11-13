@@ -21,7 +21,7 @@ impl fmt::Display for Error {
             self.0.print(py);
             sys.setattr("stderr", old_stderr)?;
 
-            Ok(stringio.call_method0("getvalue")?.extract()?)
+            stringio.call_method0("getvalue")?.extract()
         });
         write!(f, "{}", value.unwrap())
     }

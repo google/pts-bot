@@ -6,16 +6,13 @@ use std::future::Future;
 use std::io::{stdout, BufReader};
 use std::net::{Ipv4Addr, TcpStream};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::{Context, Error, Result};
-use dirs;
 use libpts::{final_verdict, logger, map_with_stack, BdAddr, Interaction, HCI, PTS};
 use serde::Deserialize;
-use serde_json;
 use structopt::StructOpt;
 
 use futures_lite::{future, io, pin, ready, stream, FutureExt, Stream, StreamExt};
@@ -158,7 +155,7 @@ fn main() -> Result<()> {
         .split_once("/")
         .map(|(profile, _)| profile)
         .unwrap_or(&*opts.test_prefix);
-    let iut_name: &str = &*opts.iut;
+    let iut_name: &str = &opts.iut;
     let iut_args = Arc::new(opts.args.clone());
 
     if let Some(ref config_path) = opts.config {
@@ -174,13 +171,13 @@ fn main() -> Result<()> {
         };
 
         for (ics, value) in config.ics {
-            pts.set_ics(&*ics, value);
+            pts.set_ics(&ics, value);
             pts.set_ics(&ics.to_uppercase(), value);
         }
 
         let pixitx = config.ixit.get("default").context("default IXIT missing")?;
         for (ixit, value) in pixitx {
-            pts.set_ixit(&*ixit, &*value);
+            pts.set_ixit(ixit, value);
         }
 
         let pixitx = config
@@ -188,10 +185,10 @@ fn main() -> Result<()> {
             .get(profile_name)
             .context("IXIT missing for selected profile")?;
         for (ixit, value) in pixitx {
-            pts.set_ixit(&*ixit, &*value);
+            pts.set_ixit(ixit, value);
         }
 
-        for test in config.skip.unwrap_or(vec![]).into_iter() {
+        for test in config.skip.unwrap_or_default().into_iter() {
             skip.insert(test);
         }
     }
@@ -217,12 +214,12 @@ fn main() -> Result<()> {
     let inactivity_timeout = opts.inactivity_timeout;
 
     block_on(async move {
-        let stream = stream::iter(tests.clone().into_iter()).then(|test| {
+        let stream = stream::iter(tests.clone()).then(|test| {
             let profile = profile.clone();
             let iut_args = iut_args.clone();
 
             async move {
-                let iut = Arc::new(PythonIUT::new(&iut_name, &iut_args, &*test)?);
+                let iut = Arc::new(PythonIUT::new(iut_name, &iut_args, &test)?);
                 let timeout = async_io::Timer::after(Duration::from_secs(inactivity_timeout));
 
                 let addr = {
@@ -251,7 +248,7 @@ fn main() -> Result<()> {
                 println!("Local address: {}", addr);
                 let events = profile
                     .run_test(
-                        &*test,
+                        &test,
                         addr,
                         connect_to_hci,
                         move |i| {

@@ -1,13 +1,15 @@
-use std::time::Duration;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::future::Future;
 use std::io::{stdout, BufReader};
 use std::net::{Ipv4Addr, TcpStream};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::Poll;
+use std::time::Duration;
 
 use anyhow::{Context, Error, Result};
 use dirs;
@@ -160,9 +162,16 @@ fn main() -> Result<()> {
     let iut_args = Arc::new(opts.args.clone());
 
     if let Some(ref config_path) = opts.config {
-        let config_file = File::open(config_path).context("Failed to open config file")?;
-        let config: Config = serde_json::from_reader(BufReader::new(config_file))
-            .context("Failed to parse config")?;
+        let config_file =
+            BufReader::new(File::open(config_path).context("Failed to open config file")?);
+        let config: Config = match config_path.extension().and_then(OsStr::to_str) {
+            Some("yaml") => {
+                serde_yaml::from_reader(config_file).context("Failed to parse config")?
+            }
+            Some("json") | _ => {
+                serde_json::from_reader(config_file).context("Failed to parse config")?
+            }
+        };
 
         for (ics, value) in config.ics {
             pts.set_ics(&*ics, value);

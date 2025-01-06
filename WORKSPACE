@@ -50,7 +50,7 @@ rules_foreign_cc_dependencies(register_built_tools = False)
 new_local_repository(
     name = "wine",
     path = "libpts/third_party/wine",
-    build_file = "libpts/third_party/wine.BUILD",
+    build_file = "@libpts//:third_party/wine.BUILD",
 )
 
 # Root canal

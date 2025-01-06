@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-BAZEL := bazel-8.0.0 --output_user_root=/tmp/bazel
+BAZEL := bazel-7.4.1 --enable_workspace --output_user_root=/tmp/bazel
 DEB_BUILD_OPTIONS=nostrip
 
 %:

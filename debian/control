@@ -2,7 +2,7 @@ Source: pts-bot
 Section: misc
 Priority: optional
 Maintainer: Blueberry Core Team <blueberry-core@google.com>
-Build-Depends: bazel-8.0.0, rustc, python3, libpython3-dev,
+Build-Depends: bazel-7.4.1, rustc, python3, libpython3-dev,
   python3-setuptools, python3-grpc-tools,
   g++-multilib, flex, bison, quilt, debhelper-compat (= 13)
 Standards-Version: 4.6.0

@@ -1,7 +1,10 @@
 use std::fmt;
 
 use pyo3::{
-    types::{IntoPyDict, PyBytes, PyDict, PyModule, PyString},
+    types::{
+        IntoPyDict, PyAnyMethods, PyBytes, PyBytesMethods, PyDict, PyModule, PyString,
+        PyStringMethods,
+    },
     PyErr, PyObject, PyResult, Python,
 };
 
@@ -17,7 +20,7 @@ impl fmt::Display for Error {
             let stringio = io.getattr("StringIO")?.call0()?;
             let sys = PyModule::import(py, "sys")?;
             let old_stderr = sys.getattr("stderr")?;
-            sys.setattr("stderr", stringio)?;
+            sys.setattr("stderr", &stringio)?;
             self.0.print(py);
             sys.setattr("stderr", old_stderr)?;
 
@@ -70,7 +73,7 @@ impl PythonIUT {
             kwargs.set_item("args", args)?;
             PyModule::import(py, name)?
                 .getattr("IUT")?
-                .call((), Some(kwargs))
+                .call((), Some(&kwargs))
                 .map(|obj| Self(obj.into()))
         })
         .map_err(Error)
@@ -78,7 +81,7 @@ impl PythonIUT {
 
     pub fn enter(&self) -> Result<(), Error> {
         Python::with_gil(|py| -> PyResult<()> {
-            let obj = self.0.as_ref(py);
+            let obj = self.0.bind(py);
             obj.call_method0("__enter__")?;
             Ok(())
         })
@@ -87,7 +90,7 @@ impl PythonIUT {
 
     pub fn exit(&self) -> Result<(), Error> {
         Python::with_gil(|py| -> PyResult<()> {
-            let obj = self.0.as_ref(py);
+            let obj = self.0.bind(py);
             obj.call_method0("__exit__")?;
             Ok(())
         })
@@ -96,10 +99,10 @@ impl PythonIUT {
 
     pub fn address(&self) -> Result<Vec<u8>, Error> {
         Python::with_gil(|py| -> PyResult<Vec<u8>> {
-            let obj = self.0.as_ref(py);
+            let obj = self.0.bind(py);
             Ok(obj
                 .getattr("address")?
-                .cast_as::<PyBytes>()?
+                .downcast::<PyBytes>()?
                 .as_bytes()
                 .to_vec())
         })
@@ -110,7 +113,7 @@ impl PythonIUT {
         Python::with_gil(|py| -> PyResult<String> {
             let (addr, style, id, profile, test, description) = interaction.explode();
             let style = format!("{:?}", style);
-            let obj = self.0.as_ref(py);
+            let obj = self.0.bind(py);
             let args = ();
             let kwargs = [
                 ("profile", profile),
@@ -119,11 +122,12 @@ impl PythonIUT {
                 ("description", description),
                 ("style", &style),
             ]
-            .into_py_dict(py);
+            .iter()
+            .into_py_dict(py)?;
             kwargs.set_item("pts_address", PyBytes::new(py, &*addr))?;
             Ok(obj
-                .call_method("interact", args, Some(kwargs))?
-                .cast_as::<PyString>()?
+                .call_method("interact", args, Some(&kwargs))?
+                .downcast::<PyString>()?
                 .to_string_lossy()
                 .into_owned())
         })

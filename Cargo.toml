@@ -17,7 +17,7 @@ anyhow = "1.0"
 structopt = "0.3.23"
 termion = "1.5"
 dirs = "3.0"
-pyo3 = { version="0.14.5", features = ["auto-initialize"] } # Keep in mind we could remove this feature and initialize the runtime ourself
+pyo3 = { version="0.23.4", features = ["auto-initialize"] } # Keep in mind we could remove this feature and initialize the runtime ourself
 
 [package.metadata.raze]
 workspace_path = "//third_party/cargo"

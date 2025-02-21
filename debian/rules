@@ -1,14 +1,17 @@
 #!/usr/bin/make -f
 
-BAZEL := bazel-7.4.1 --enable_workspace --output_user_root=/tmp/bazel
 DEB_BUILD_OPTIONS=nostrip
+CARGO := cargo
 
 %:
 	dh $@ --with quilt
 
 override_dh_auto_clean:
-	$(BAZEL) clean
+	$(CARGO) clean
 
 override_dh_auto_build:
-	$(BAZEL) build :pts-bot --extra_toolchains=:host_rust_linux_x86_64
+	$(CARGO) \
+		--config "source.crates-io.directory = \"third_party/cargo/vendor\"" \
+		--config "env.SERVER_PATH = \"$(realpath libpts/server/server.exe.so)\"" \
+		build --release
 	cd mmi2grpc; ./setup.py build

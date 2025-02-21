@@ -165,9 +165,10 @@ fn main() -> Result<()> {
             Some("yaml") => {
                 serde_yaml::from_reader(config_file).context("Failed to parse config")?
             }
-            Some("json") | _ => {
+            Some("json") | None => {
                 serde_json::from_reader(config_file).context("Failed to parse config")?
             }
+            Some(other) => anyhow::bail!("unknown configuration file format '{}'", other),
         };
 
         for (ics, value) in config.ics {

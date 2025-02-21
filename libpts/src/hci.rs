@@ -95,7 +95,7 @@ impl AsyncWrite for HCIPort {
     }
 }
 
-impl<'a> std::ops::Drop for WineHCIPort<'a> {
+impl std::ops::Drop for WineHCIPort<'_> {
     fn drop(&mut self) {
         if let Some(com) = self.com.take() {
             let _ = self.wine.unbind_com_port(com);

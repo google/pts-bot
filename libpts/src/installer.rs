@@ -50,7 +50,7 @@ pub fn install_pts(wine: &Wine, mut installer_src: impl io::Read) {
                 && file_name
                     .chars()
                     .all(|c| matches!(c, '0'..='9' | 'A'..='F')))
-            .then(|| file_name)
+            .then_some(file_name)
         })
         .next()
         .expect("Failed to find the installer extract dir");

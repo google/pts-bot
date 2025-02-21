@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<'a> XMLModel<'a> for Pics {
+impl XMLModel<'_> for Pics {
     const PATH: &'static str = "bin/Bluetooth/PICSX";
     const FILE_TYPE: &'static str = "picsx";
 }

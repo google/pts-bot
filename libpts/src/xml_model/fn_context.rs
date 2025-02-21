@@ -6,7 +6,7 @@ const FALSE: Value = Value::Boolean(false);
 
 pub struct FnContext<'a, T>(pub &'a T);
 
-impl<'a, T> Context for FnContext<'a, T>
+impl<T> Context for FnContext<'_, T>
 where
     T: Fn(&str) -> Option<bool>,
 {

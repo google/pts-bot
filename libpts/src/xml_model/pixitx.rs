@@ -5,8 +5,10 @@ use super::XMLModel;
 #[derive(Debug, Deserialize)]
 pub struct Pixit {
     #[serde(rename = "Name")]
+    #[allow(dead_code)]
     pub name: String,
     #[serde(rename = "Version")]
+    #[allow(dead_code)]
     pub version: String,
     #[serde(rename = "Rows")]
     rows: Rows,
@@ -32,7 +34,7 @@ pub struct Row {
     pub value: String,
 }
 
-impl<'a> XMLModel<'a> for Pixit {
+impl XMLModel<'_> for Pixit {
     const PATH: &'static str = "bin/Bluetooth/PIXITX";
     const FILE_TYPE: &'static str = "pixitx";
 }

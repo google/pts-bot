@@ -73,6 +73,7 @@ pub enum Message {
     },
     Log {
         time: String,
+        #[allow(dead_code)]
         description: String,
         message: String,
         logtype: LogType,
@@ -80,7 +81,7 @@ pub enum Message {
     Raw(String),
 }
 
-pub struct Server<'wine>(Child, WineHCIPort<'wine>);
+pub struct Server<'wine>(Child, #[allow(dead_code)] WineHCIPort<'wine>);
 
 impl<'wine> Server<'wine> {
     pub fn spawn<'a>(
@@ -135,7 +136,7 @@ impl<'wine> Server<'wine> {
     }
 }
 
-impl<'wine> std::ops::Drop for Server<'wine> {
+impl std::ops::Drop for Server<'_> {
     fn drop(&mut self) {
         // TODO: handle failure
         let _ = self.0.kill().and_then(|_| self.0.wait());

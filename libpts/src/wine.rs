@@ -101,7 +101,7 @@ fn wineserver_socket_exists(metadata: &fs::Metadata) -> bool {
             entry
                 .file_name()
                 .to_str()
-                .map_or(false, |file_name| file_name.starts_with("wine-"))
+                .is_some_and(|file_name| file_name.starts_with("wine-"))
         })
         .any(|entry| entry.path().join(&socket).exists())
 }
@@ -220,12 +220,12 @@ impl Wine {
             // take some time to process them (~8 seconds on gLinux)
             // we don't "render" anything so we provide a fontconfig
             // file without any font
-            .env("FONTCONFIG_FILE", &self.prefix.join("fonts.conf"))
+            .env("FONTCONFIG_FILE", self.prefix.join("fonts.conf"))
             // Controll the alsa configuration to be able to provide
             // a device in a headless environment (the PTS need to play
             // audio for the tester to verify it) and also to be
             // able to save audio to a file
-            .env("ALSA_CONFIG_PATH", &self.prefix.join("alsa.conf"))
+            .env("ALSA_CONFIG_PATH", self.prefix.join("alsa.conf"))
             .env("WINEDEBUG", "-all")
             .env("WINEPREFIX", &self.prefix)
             .env("USER", "pts")

@@ -10,6 +10,7 @@ use super::XMLModel;
 #[derive(Debug, Deserialize)]
 pub struct Ets {
     #[serde(rename = "ETSVersion")]
+    #[allow(dead_code)]
     pub version: Option<String>,
     #[serde(rename = "Profile")]
     pub profile: Profile,
@@ -18,6 +19,7 @@ pub struct Ets {
 #[derive(Debug, Deserialize)]
 pub struct Profile {
     #[serde(rename = "Name")]
+    #[allow(dead_code)]
     pub name: String,
     #[serde(rename = "Group", default)]
     pub groups: Vec<Group>,
@@ -26,6 +28,7 @@ pub struct Profile {
 #[derive(Debug, Deserialize)]
 pub struct Group {
     #[serde(rename = "Name")]
+    #[allow(dead_code)]
     pub name: String,
     #[serde(rename = "Group", default)]
     pub groups: Vec<Group>,
@@ -40,6 +43,7 @@ pub struct TestCase {
     #[serde(rename = "Mapping", default)]
     pub mapping: String,
     #[serde(rename = "Description", default)]
+    #[allow(dead_code)]
     pub description: String,
 }
 
@@ -62,7 +66,7 @@ impl Group {
     }
 }
 
-impl<'a> XMLModel<'a> for Ets {
+impl XMLModel<'_> for Ets {
     const PATH: &'static str = "bin/Bluetooth/Ets/";
 }
 

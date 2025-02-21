@@ -220,7 +220,7 @@ impl<'pts> Profile<'pts> {
 
             while let Ok(interaction) = rx.recv().await {
                 let answer = interact(interaction).await.map_err(RunError::Interact)?;
-                send_answer(&*answer);
+                send_answer(&answer);
             }
             Ok(None)
         };

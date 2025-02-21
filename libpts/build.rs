@@ -2,6 +2,10 @@ use std::env;
 use std::process::Command;
 
 fn main() {
+    if env::var("SERVER_PATH").is_ok() {
+        return;
+    }
+
     let out_dir: String = env::var("OUT_DIR").unwrap();
 
     // Build ETSManager for wine

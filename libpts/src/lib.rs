@@ -264,4 +264,10 @@ impl<'pts> Profile<'pts> {
 
         log::parse(messages)
     }
+
+    /// Delete the PTS link key file.
+    /// NB. The location of the file might change from version to version.
+    pub fn delete_link_key(&self) {
+        let _ = std::fs::remove_file(self.pts.wine.drive_c().join("pts/bin/link_key.txt"));
+    }
 }

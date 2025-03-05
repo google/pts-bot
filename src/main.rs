@@ -272,6 +272,13 @@ fn main() -> Result<()> {
                     .await
                     .context("Runtime Error")
                     .try_into();
+
+                // The configuration TSPX_delete_link_key should normally
+                // force the PTS to remove the link key database;
+                // however OPP tests do not properly apply this configuration
+                // resulting in test failures.
+                profile.delete_link_key();
+
                 result
             }
         });

@@ -210,6 +210,8 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    pyo3::prepare_freethreaded_python();
+
     let ctrlc = CtrlC::new().context("Failed to create Ctrl+C handler")?;
     let fail_fast = opts.fail_fast;
     let inactivity_timeout = opts.inactivity_timeout;

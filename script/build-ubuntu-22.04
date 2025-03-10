@@ -12,7 +12,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Build and install python3
-ENV PYTHON_VERSION 3.7.7
+ENV PYTHON_VERSION 3.12.8
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get install -y \
     build-essential \
@@ -31,8 +31,9 @@ WORKDIR /python
 RUN curl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tar.xz | tar xJ --strip-components=1
 
 RUN ./configure --enable-optimizations
+RUN make -j
 RUN make -j install
-RUN cd /usr/local; zip -r /python/pythonhome.zip lib/python3.7/*
+RUN cd /usr/local; zip -r /python/pythonhome.zip lib/python3.12/*
 
 WORKDIR /workspace
 

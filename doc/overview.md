@@ -51,18 +51,19 @@ PTS-bot is relying on 3 key components:
   common abstraction for Avatar to interact with all Bluetooth implementations,
   exposing all standard Bluetooth capabilities over [gRPC](https://grpc.io/).
 
-* [`libpts`](https://blueberry.git.corp.google.com/libpts/) manages the PTS
+* **libpts** manages the PTS
   environment, including the Wine server for running the PTS Windows binary and
   the PTS parser, used to produce well structured logs and to parse the PTS MMI.
   This library is mostly written in Rust.
 
-* [`mmi2grpc`][mmi2grpc-code] acts as a gRPC client (the gRPC server being
+* **mmi2grpc** acts as a gRPC client (the gRPC server being
   implemented on the DUT) and translates PTS MMIs into gRPC calls. This library
   is written in python so as to be easier to update by other developers.
 
-* **Rootcanal**: A virtual Bluetooth Controller which emulates the Bluetooth
-  communication between the devices being tested. It is notably integrated in
-  Cuttlefish (CF), an Android virtual device.
+* [Rootcanal](https://github.com/google/rootcanal): A virtual Bluetooth
+  Controller which emulates the Bluetooth communication between the devices
+  being tested. It is notably integrated in Cuttlefish (CF),
+  an Android virtual device.
 
 ## Goals
 
@@ -89,5 +90,3 @@ PTS-bot has two main limitations:
 
 * Because it relies on a virtual Bluetooth Controller, it cannot check for any
   potential issues located inside the Bluetooth chip of a specific device.
-
-[mmi2grpc-code]: https://cs.android.com/android/platform/superproject/main/+/main:packages/modules/Bluetooth/android/pandora/mmi2grpc/

@@ -23,8 +23,7 @@ For example, the latest ICS for the Fluoride stack can be found [here](
 https://launchstudio.bluetooth.com/ListingDetails/13841).
 
 A new ICS can be computed for a profile being implemented using
-[Launch Studio][launch-studio]. This requires a
-[Bluetooth SIG account](http://go/bt-sig-membership).
+[Launch Studio][launch-studio]. This requires a Bluetooth SIG account.
 
 ## Test Suite (TS)
 
@@ -71,8 +70,8 @@ on the DUT when the PTS requests them through its Man Machine Interfaces (MMIs).
 /pandora/guides/pts-bot/images/lower-upper-testers-pts.svg){: width="70%"}
 
 When using PTS-bot, the upper tester is the Pandora Bluetooth test server
-implementing the [Pandora APIs]
-(https://developers.google.com/pandora/guides/bt-test-interfaces/overview).
+implementing the [Pandora APIs](
+https://github.com/google/bt-test-interfaces/blob/main/doc/overview.md).
 PTS tests are automated by converting the PTS
 MMI calls to gRPC calls to the test interfaces.
 
@@ -122,8 +121,8 @@ The columns for the TCMT are defined as follows:
 An Abstract Test Suite (ATS) is defined by an implementation-independent set of
 Test Cases.
 
-The PTS ATS for each profile/protocol can be found in
-[ATS drive folder][ats-drive] and provides the list of Test Cases supported by
+The PTS ATS for each profile/protocol can be found downloaded from the
+certification test tool and provides the list of Test Cases supported by
 the PTS. They also provide a list (often not complete) of their associated MMI.
 
 ## Implementation Extra Information for Test (IXIT)
@@ -135,5 +134,3 @@ https://www.bluetooth.com/specifications/specs/) next to their specification
 (qualification test documents tab).
 
 [launch-studio]: https://www.bluetooth.com/develop-with-bluetooth/build/test-tools/launch-studio/
-
-[ats-drive]: https://drive.google.com/corp/drive/folders/1-7GDkVhA0am5RDvmJaqrh77dBiakvGV2?resourcekey=0-cZ4zBNiNc5CXsEKlczNXRA

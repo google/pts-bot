@@ -125,9 +125,13 @@ struct Opts {
     #[structopt(short = "t", long, default_value = "60")]
     inactivity_timeout: u64,
 
-    /// PTS setup executable Path
+    /// PTS setup executable Path. Defaults to ~/.config/pts/pts_setup_8_0_3.exe
     #[structopt(long, parse(from_os_str))]
     pts_setup: Option<PathBuf>,
+
+    /// PTS cache Path. Defaults to ~/.cache/pts
+    #[structopt(long, parse(from_os_str))]
+    pts_cache: Option<PathBuf>,
 
     /// All tests under this prefix will be run.
     /// The prefix must include the profile.
@@ -158,10 +162,20 @@ fn main() -> Result<()> {
             })
         })?;
 
-    let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
-    cache.push("pts");
+    let cache = opts
+        .pts_cache
+        .clone()
+        .or_else(|| {
+            let mut cache = dirs::cache_dir()?;
+            cache.push("pts");
+            Some(cache)
+        })
+        .context("Failed to get cache dir")?;
 
-    let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
+    println!("Installing to {}", std::path::absolute(&cache)?.display());
+
+    let mut pts =
+        PTS::install(std::path::absolute(&cache)?, installer).context("Failed to create PTS")?;
     let mut skip = HashSet::new();
 
     let profile_name = opts

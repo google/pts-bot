@@ -97,3 +97,40 @@ impl<R: Read> Read for Reader<R> {
         Ok(head)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::jsonc::Reader;
+    use std::io::Read;
+
+    fn test(input: &str, expected_output: &str) {
+        let mut reader = Reader::new(input.as_bytes());
+        let mut output = [0; 256];
+        let result = reader.read(&mut output);
+
+        assert!(result.is_ok(), "jsonc read returned an error");
+        let output_len = result.unwrap();
+
+        assert_eq!(expected_output.len(), output_len);
+        assert_eq!(expected_output.as_bytes(), &output[0..output_len]);
+    }
+
+    #[test]
+    fn plain() {
+        test("abcd\nefgh", "abcd\nefgh");
+    }
+
+    #[test]
+    fn quote() {
+        test("\"abcd\"\nefgh", "\"abcd\"\nefgh");
+        test("\"ab/cd\"\nefgh", "\"ab/cd\"\nefgh");
+        test("\"ab//cd\"\nefgh", "\"ab//cd\"\nefgh");
+    }
+
+    #[test]
+    fn comment() {
+        test("// abcd\nefgh", "\nefgh");
+        test("abcd // efgh\nijkl", "abcd \nijkl");
+        test("\"abcd\" // efgh\nijkl", "\"abcd\" \nijkl");
+    }
+}

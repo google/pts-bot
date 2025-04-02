@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::ffi::OsStr;
 use std::fs::File;
 use std::future::Future;
 use std::io::{stdout, BufReader};
@@ -176,14 +175,8 @@ fn main() -> Result<()> {
     if let Some(ref config_path) = opts.config {
         let config_file =
             BufReader::new(File::open(config_path).context("Failed to open config file")?);
-        let config: Config = match config_path.extension().and_then(OsStr::to_str) {
-            Some("yaml") => {
-                serde_yaml::from_reader(config_file).context("Failed to parse config")?
-            }
-            Some("json") | None => serde_json::from_reader(jsonc::Reader::new(config_file))
-                .context("Failed to parse config")?,
-            Some(other) => anyhow::bail!("unknown configuration file format '{}'", other),
-        };
+        let config: Config = serde_json::from_reader(jsonc::Reader::new(config_file))
+            .context("Failed to parse config")?;
 
         for (ics, value) in config.ics {
             pts.set_ics(&ics, value);

@@ -26,6 +26,7 @@ use blocking::unblock;
 mod python;
 use python::PythonIUT;
 
+mod jsonc;
 mod test;
 
 async fn connect_to_hci(port: HCI) -> std::io::Result<()> {
@@ -179,9 +180,8 @@ fn main() -> Result<()> {
             Some("yaml") => {
                 serde_yaml::from_reader(config_file).context("Failed to parse config")?
             }
-            Some("json") | None => {
-                serde_json::from_reader(config_file).context("Failed to parse config")?
-            }
+            Some("json") | None => serde_json::from_reader(jsonc::Reader::new(config_file))
+                .context("Failed to parse config")?,
             Some(other) => anyhow::bail!("unknown configuration file format '{}'", other),
         };
 

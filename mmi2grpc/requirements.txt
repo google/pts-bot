@@ -1,6 +1,6 @@
-grpcio==1.41.0
+grpcio==1.53.2
 grpcio-tools==1.41.0
 numpy==1.22.3
-protobuf==3.18.1
+protobuf==3.18.3
 scipy==1.8.0
 six==1.16.0

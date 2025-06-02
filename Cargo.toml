@@ -1,6 +1,6 @@
 [package]
 name = "pts-bot"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["David Duarte <licorne@google.com>", "Charlie Boutier <charliebout@google.com>", "Thomas Girardier <girardier@google.com>"]
 edition = "2018"
 

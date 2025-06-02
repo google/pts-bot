@@ -1,0 +1,9 @@
+[submodule "mmi2grpc"]
+	path = mmi2grpc
+	url = sso://blueberry/mmi2grpc
+[submodule "libpts"]
+	path = libpts
+	url = sso://blueberry/libpts
+[submodule "third_party/cargo"]
+	path = third_party/cargo
+	url = sso://blueberry/PTS-bot/third_party/cargo

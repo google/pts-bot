@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+DEB_BUILD_OPTIONS=nostrip
+CARGO := cargo
+
+%:
+	dh $@ --with quilt
+
+override_dh_auto_clean:
+	$(CARGO) clean
+
+override_dh_auto_build:
+	$(CARGO) \
+		--config "source.crates-io.directory = \"third_party/cargo/vendor\"" \
+		--config "env.SERVER_PATH = \"$(realpath libpts/server/server.exe.so)\"" \
+		build --release
+	cd mmi2grpc; ./setup.py build

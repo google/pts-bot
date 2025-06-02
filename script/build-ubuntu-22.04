@@ -1,0 +1,46 @@
+FROM ubuntu:22.04 as build
+
+RUN apt-get update
+RUN apt-get install -y gcc-multilib
+RUN dpkg --add-architecture i386
+RUN apt-get update
+RUN apt-get install -y wine32 wine32-tools
+
+# Install rust
+RUN apt-get install -y curl
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Build and install python3
+ENV PYTHON_VERSION 3.12.8
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get install -y \
+    build-essential \
+    zlib1g-dev \
+    libncurses5-dev \
+    libgdbm-dev \
+    libssl-dev \
+    libreadline-dev \
+    libffi-dev \
+    libsqlite3-dev \
+    libbz2-dev \
+    zip
+
+WORKDIR /python
+
+RUN curl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tar.xz | tar xJ --strip-components=1
+
+RUN ./configure --enable-optimizations
+RUN make -j
+RUN make -j install
+RUN cd /usr/local; zip -r /python/pythonhome.zip lib/python3.12/*
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN RUSTFLAGS="-C link-args=-Wl,--export-dynamic" cargo build --locked --release
+
+FROM scratch
+COPY --from=build /workspace/target/release/pts-bot /
+COPY --from=build /python/pythonhome.zip /

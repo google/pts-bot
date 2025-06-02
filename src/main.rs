@@ -14,7 +14,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::ffi::OsStr;
 use std::fs::File;
 use std::future::Future;
 use std::io::{stdout, BufReader};
@@ -40,6 +39,7 @@ use blocking::unblock;
 mod python;
 use python::PythonIUT;
 
+mod jsonc;
 mod test;
 
 async fn connect_to_hci(port: HCI) -> std::io::Result<()> {
@@ -125,9 +125,13 @@ struct Opts {
     #[structopt(short = "t", long, default_value = "60")]
     inactivity_timeout: u64,
 
-    /// PTS setup executable Path
+    /// PTS setup executable Path. Defaults to ~/.config/pts/pts_setup_8_0_3.exe
     #[structopt(long, parse(from_os_str))]
     pts_setup: Option<PathBuf>,
+
+    /// PTS cache Path. Defaults to ~/.cache/pts
+    #[structopt(long, parse(from_os_str))]
+    pts_cache: Option<PathBuf>,
 
     /// All tests under this prefix will be run.
     /// The prefix must include the profile.
@@ -158,10 +162,20 @@ fn main() -> Result<()> {
             })
         })?;
 
-    let mut cache = dirs::cache_dir().context("Failed to get cache dir")?;
-    cache.push("pts");
+    let cache = opts
+        .pts_cache
+        .clone()
+        .or_else(|| {
+            let mut cache = dirs::cache_dir()?;
+            cache.push("pts");
+            Some(cache)
+        })
+        .context("Failed to get cache dir")?;
 
-    let mut pts = PTS::install(cache, installer).context("Failed to create PTS")?;
+    println!("Installing to {}", std::path::absolute(&cache)?.display());
+
+    let mut pts =
+        PTS::install(std::path::absolute(&cache)?, installer).context("Failed to create PTS")?;
     let mut skip = HashSet::new();
 
     let profile_name = opts
@@ -175,15 +189,8 @@ fn main() -> Result<()> {
     if let Some(ref config_path) = opts.config {
         let config_file =
             BufReader::new(File::open(config_path).context("Failed to open config file")?);
-        let config: Config = match config_path.extension().and_then(OsStr::to_str) {
-            Some("yaml") => {
-                serde_yaml::from_reader(config_file).context("Failed to parse config")?
-            }
-            Some("json") | None => {
-                serde_json::from_reader(config_file).context("Failed to parse config")?
-            }
-            Some(other) => anyhow::bail!("unknown configuration file format '{}'", other),
-        };
+        let config: Config = serde_json::from_reader(jsonc::Reader::new(config_file))
+            .context("Failed to parse config")?;
 
         for (ics, value) in config.ics {
             pts.set_ics(&ics, value);

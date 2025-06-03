@@ -16,4 +16,4 @@ anyhow = "1.0"
 structopt = "0.3.23"
 termion = "1.5"
 dirs = "3.0"
-pyo3 = { version="0.23.4" }
+pyo3 = { version="0.24.1" }

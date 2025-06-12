@@ -223,12 +223,6 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Failed to register port\n");
 		return 1;
 	}
-	char const *devices = GetDeviceList();
-
-	if (strstr(devices, port) == NULL) {
-		fprintf(stderr, "Failed to register device\n");
-		return 1;
-	}
 
 	SetPTSDevice(port);
 

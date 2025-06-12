@@ -224,6 +224,13 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	// Previously, GetDeviceList() was called here to validate virtual COM port entry
+	// registered with Wine/Windows registry. However, later PTS versions (e.g., v8.9.0)
+	// no longer identify and report virtual COM ports, as these APIs primarily enumerate
+	// and target physical devices on native Windows. Since PTS still recognizes the port
+	// set with SetPTSDevice() and communicates with the chip including the older versions
+	// such as v8.0.3 without this API call, it has been removed.
+
 	SetPTSDevice(port);
 
 	success = VerifyDongleEx();
